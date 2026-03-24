@@ -1,0 +1,53 @@
+import { Client, LoggerLevel } from "@larksuiteoapi/node-sdk";
+import { ResolvedConfig } from "./config";
+
+let cachedClient: Client | null = null;
+let cachedKey = "";
+
+const silentLogger = {
+  fatal: (): void => {},
+  error: (): void => {},
+  warn: (): void => {},
+  info: (): void => {},
+  debug: (): void => {},
+  trace: (): void => {},
+};
+
+function writeLog(prefix: string, args: unknown[]): void {
+  process.stderr.write(`${prefix} ${args.map(String).join(" ")}\n`);
+}
+
+const stderrLogger = {
+  fatal: (...args: unknown[]): void => writeLog("[fatal]", args),
+  error: (...args: unknown[]): void => writeLog("[error]", args),
+  warn: (...args: unknown[]): void => writeLog("[warn]", args),
+  info: (...args: unknown[]): void => writeLog("[info]", args),
+  debug: (...args: unknown[]): void => writeLog("[debug]", args),
+  trace: (...args: unknown[]): void => writeLog("[trace]", args),
+};
+
+export function getClient(config: ResolvedConfig): Client {
+  if (!config.appId || !config.appSecret) {
+    throw new Error("Missing app_id or app_secret. Run `feishu-cli config init` or set FEISHU_APP_ID / FEISHU_APP_SECRET.");
+  }
+
+  const key = JSON.stringify({
+    appId: config.appId,
+    appSecret: config.appSecret,
+    baseUrl: config.baseUrl,
+  });
+
+  if (cachedClient && cachedKey === key) {
+    return cachedClient;
+  }
+
+  cachedClient = new Client({
+    appId: config.appId,
+    appSecret: config.appSecret,
+    domain: config.baseUrl,
+    loggerLevel: config.debug ? LoggerLevel.info : LoggerLevel.error,
+    logger: config.debug ? stderrLogger : silentLogger,
+  });
+  cachedKey = key;
+  return cachedClient;
+}
