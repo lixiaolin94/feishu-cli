@@ -259,6 +259,24 @@ output:
 - Browser cannot be opened during login
   Run `feishu-cli auth login --manual` and paste the callback URL back into the terminal.
 
+## Claude Code Skill
+
+This repo includes a [Claude Code skill](./skill/SKILL.md) that teaches Claude Code how to use feishu-cli. Once installed, Claude can discover APIs, send messages, manage docs, and call any Feishu API on your behalf.
+
+**Install the skill:**
+
+```bash
+# Clone the repo (or use an existing clone)
+git clone https://github.com/lixiaolin94/feishu-cli.git
+
+# Symlink the skill into Claude Code's skill directory
+ln -s "$(pwd)/feishu-cli/skill" ~/.claude/skills/feishu
+```
+
+After installation, Claude Code will automatically trigger the skill when you mention Feishu/Lark operations. You can also invoke it explicitly with `/feishu`.
+
+**Prerequisites:** Make sure `feishu-cli` is installed globally (`npm i -g @lixiaolin94/feishu-cli`) and configured (`feishu-cli config init`).
+
 ## Development
 
 ```bash
