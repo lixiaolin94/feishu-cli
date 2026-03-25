@@ -53,8 +53,15 @@ describe("completion command", () => {
     expect(output).toContain("login");
     expect(output).toContain("status");
     expect(output).toContain("logout");
+  });
+
+  it("includes inherited global options for subcommands", async () => {
+    const program = createProgram();
+    await program.parseAsync(["node", "feishu-cli", "completion", "--words", "--", "auth"]);
+    const output = writeSpy.mock.calls.map(([arg]) => arg).join("");
     expect(output).toContain("--debug");
     expect(output).toContain("--token-mode");
+    expect(output).toContain("--max-retries");
   });
 
   it("handles nested completion contexts without too many arguments", async () => {
@@ -72,6 +79,16 @@ describe("completion command", () => {
     const output = writeSpy.mock.calls.map(([arg]) => arg).join("");
     expect(output).toContain("create");
     expect(output).toContain("list");
+  });
+
+  it("outputs options for deeply nested generated commands", async () => {
+    const program = createProgram();
+    await program.parseAsync(["node", "feishu-cli", "completion", "--words", "--", "im", "chat", "list"]);
+    const output = writeSpy.mock.calls.map(([arg]) => arg).join("");
+    expect(output).toContain("--page-size");
+    expect(output).toContain("--page-token");
+    expect(output).toContain("--debug");
+    expect(output).not.toContain("\nlist\n");
   });
 
   it("auto-detects shell when omitted", async () => {
