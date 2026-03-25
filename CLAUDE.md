@@ -88,6 +88,8 @@ Shared token routing logic lives in `src/core/config.ts` as `getShouldUseUAT(tok
   Current implementation uses `docx document rawContent`, which is useful but not yet high-fidelity Markdown export.
 - `exec`
   Executes one tool from JSON input and always returns structured JSON. Supports `--batch` and `--dry-run` for agent workflows. Internally it uses the SDK layer rather than Commander-generated flags.
+- `completion [bash|zsh|fish]`
+  Generates shell completion scripts. Usage: `eval "$(feishu-cli completion)"` in shell rc file. Uses dynamic callback to the CLI for completions, so all 1300+ generated commands are supported.
 
 ## Development Notes
 
@@ -104,7 +106,9 @@ Common local checks:
 ```bash
 npm run typecheck
 npm run build
+npm test
 node bin/feishu-cli.js --help
 node bin/feishu-cli.js im chat list --help
 node bin/feishu-cli.js docx builtin import --help
+node bin/feishu-cli.js completion bash
 ```

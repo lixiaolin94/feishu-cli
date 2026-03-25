@@ -41,6 +41,27 @@ describe("mergePaginatedResults", () => {
       },
     });
   });
+
+  it("returns single result as-is", () => {
+    const single = { code: 0, data: { items: [{ id: 1 }] } };
+    expect(mergePaginatedResults([single])).toBe(single);
+  });
+
+  it("returns empty array's first element", () => {
+    expect(mergePaginatedResults([])).toBeUndefined();
+  });
+
+  it("merges results without data wrapper", () => {
+    expect(
+      mergePaginatedResults([
+        { has_more: true, page_token: "next", items: [1] },
+        { has_more: false, items: [2] },
+      ]),
+    ).toEqual({
+      has_more: false,
+      items: [1, 2],
+    });
+  });
 });
 
 describe("executeWithPagination", () => {
