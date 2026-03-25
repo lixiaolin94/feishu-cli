@@ -11,13 +11,13 @@ TypeScript CLI for Feishu / Lark Open Platform APIs. The project reuses the offi
 - `src/generated/registry.ts`
   Provides lookup helpers over the imported tool list.
 - `src/tools/index.ts`
-  Imports both official `GenTools` and `BuiltinTools` from `ref/lark-openapi-mcp-main`.
+  Imports official `GenTools` plus local native builtin tool definitions from `src/tools/builtin`.
 - `src/core/client.ts`
   Creates the Lark SDK client and suppresses SDK log noise so stdout stays script-friendly.
 - `src/core/config.ts`
   Resolves config from `config.yaml`, profile overrides, environment variables, and global CLI flags.
 - `src/core/executor.ts`
-  Executes generated SDK methods, raw HTTP fallbacks, and builtin `customHandler` tools. Also normalizes common API errors.
+  Executes generated SDK methods, raw HTTP fallbacks, and local builtin `nativeHandler` tools. Also normalizes common API errors.
 - `src/commands/**`
   Custom user-facing commands such as `auth`, `config`, `msg send`, and `doc import/export`.
 

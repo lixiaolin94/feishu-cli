@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { ReadStream } from "node:fs";
-import { Readable } from "node:stream";
 import * as lark from "@larksuiteoapi/node-sdk";
 import { Command } from "commander";
 import { getClient } from "../../core/client";
@@ -9,20 +7,8 @@ import { resolveUserAccessToken } from "../../core/auth/resolve";
 import { executeTool } from "../../core/executor";
 import { printOutput } from "../../core/output";
 import { findToolByName } from "../../generated/registry";
+import { importMarkdownToDocx } from "../../tools/builtin/docx-import";
 import { chunkBlocks, deriveTitle, markdownToSimpleBlocks, readMarkdownFile } from "./doc-helpers";
-
-function getRequestOptions(
-  useUAT: boolean | undefined,
-  userAccessToken?: string,
-): Array<ReturnType<typeof lark.withUserAccessToken>> {
-  if (!useUAT) {
-    return [];
-  }
-  if (!userAccessToken) {
-    throw new Error("doc import requires a valid user token. Run `feishu-cli auth login` or pass --user-token.");
-  }
-  return [lark.withUserAccessToken(userAccessToken)];
-}
 
 function extractDocumentIdFromImportResult(result: unknown): string | undefined {
   if (!result || typeof result !== "object") {
@@ -59,82 +45,27 @@ async function importViaOfficialFlow(
   useUAT: boolean | undefined,
   userAccessToken: string | undefined,
 ): Promise<Record<string, unknown>> {
-  const requestOptions = getRequestOptions(useUAT, userAccessToken);
-  const uploadResult = await client.drive.media.uploadAll(
-    {
-      data: {
-        file_name: fileName,
-        parent_type: "ccm_import_open",
-        parent_node: "/",
-        size: Buffer.byteLength(markdown, "utf8"),
-        file: Readable.from(markdown) as ReadStream,
-        extra: JSON.stringify({ obj_type: "docx", file_extension: "md" }),
-      },
-    },
-    ...requestOptions,
-  );
+  const importResult = await importMarkdownToDocx(client, {
+    markdown,
+    uploadFileName: fileName,
+    documentTitle: title,
+    folderToken,
+    useUAT,
+    userAccessToken,
+  });
+  const task = importResult.task as { result?: Record<string, unknown> };
 
-  const fileToken = uploadResult?.file_token;
-  if (!fileToken) {
-    throw new Error("Document import failed: drive.media.uploadAll did not return a file_token.");
-  }
-
-  const importResult = await client.drive.importTask.create(
-    {
-      data: {
-        file_extension: "md",
-        file_name: title,
-        file_token: fileToken,
-        type: "docx",
-        point: {
-          mount_type: 1,
-          mount_key: folderToken ?? "",
-        },
-      },
-    },
-    ...requestOptions,
-  );
-
-  const ticket = importResult.data?.ticket;
-  if (!ticket) {
-    throw new Error("Document import failed: drive.importTask.create did not return a ticket.");
-  }
-
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const taskResult = await client.drive.importTask.get(
-      {
-        path: {
-          ticket,
-        },
-      },
-      ...requestOptions,
-    );
-
-    const jobStatus = taskResult.data?.result?.job_status;
-    if (jobStatus === 0) {
-      return {
-        ok: true,
-        import_mode: "official",
-        title,
-        source_file: sourceFile,
-        file_name: fileName,
-        file_token: fileToken,
-        ticket,
-        document_id: extractDocumentIdFromImportResult(taskResult.data?.result),
-        result: taskResult.data,
-      };
-    }
-
-    if (jobStatus !== 1 && jobStatus !== 2) {
-      throw new Error(
-        `Document import failed: ${JSON.stringify(taskResult.data?.result ?? taskResult.data ?? { ticket, job_status: jobStatus })}`,
-      );
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-
-  throw new Error("Document import timed out while waiting for drive.importTask.");
+  return {
+    ok: true,
+    import_mode: "official",
+    title,
+    source_file: sourceFile,
+    file_name: fileName,
+    file_token: importResult.fileToken,
+    ticket: importResult.ticket,
+    document_id: extractDocumentIdFromImportResult(task.result),
+    result: importResult.task,
+  };
 }
 
 async function importViaLegacyFlow(

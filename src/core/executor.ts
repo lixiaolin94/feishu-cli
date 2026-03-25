@@ -13,14 +13,6 @@ interface ApiErrorPayload {
 const TOKEN_REAUTH_CODES = new Set([99991663, 99991664, 99991668, 99991679]);
 const RATE_LIMIT_CODE = 99991400;
 
-function safeJsonParse(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
 function extractApiErrorPayload(error: unknown): ApiErrorPayload | undefined {
   if (!error || typeof error !== "object") {
     return undefined;
@@ -39,7 +31,7 @@ function extractApiErrorPayload(error: unknown): ApiErrorPayload | undefined {
   return candidate.response?.data ?? candidate;
 }
 
-function formatApiErrorMessage(payload: ApiErrorPayload): string {
+export function formatApiErrorMessage(payload: ApiErrorPayload): string {
   const code = payload.code ?? "unknown";
   const message = payload.msg ?? "Unknown API error";
   const logId = payload.log_id ?? payload.logId;
@@ -54,18 +46,10 @@ function formatApiErrorMessage(payload: ApiErrorPayload): string {
   return `API error (code: ${code}): ${message}${suffix}`;
 }
 
-function assertSuccessfulResult(result: unknown): unknown {
+export function assertSuccessfulResult(result: unknown): unknown {
   const payload = extractApiErrorPayload(result);
   if (payload?.code && payload.code !== 0) {
     throw new Error(formatApiErrorMessage(payload));
-  }
-  return result;
-}
-
-function unwrapCustomHandlerResult(result: unknown): unknown {
-  const content = (result as { content?: Array<{ text?: string }> } | undefined)?.content;
-  if (content?.[0]?.text) {
-    return safeJsonParse(content[0].text);
   }
   return result;
 }
@@ -93,19 +77,8 @@ export async function executeTool(
   userAccessToken?: string,
 ): Promise<unknown> {
   try {
-    if (tool.customHandler) {
-      const customResult = await tool.customHandler(client, params, { userAccessToken, tool });
-      const normalized = unwrapCustomHandlerResult(customResult);
-
-      if ((customResult as { isError?: boolean } | undefined)?.isError) {
-        const errorPayload = extractApiErrorPayload(normalized);
-        if (errorPayload) {
-          throw new Error(formatApiErrorMessage(errorPayload));
-        }
-        throw new Error(typeof normalized === "string" ? normalized : JSON.stringify(normalized));
-      }
-
-      return assertSuccessfulResult(normalized);
+    if (tool.nativeHandler) {
+      return assertSuccessfulResult(await tool.nativeHandler(client, params, userAccessToken));
     }
 
     if (!tool.sdkName) {

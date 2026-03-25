@@ -14,7 +14,9 @@
     "build": "tsup",
     "clean": "rm -rf dist",
     "start": "node bin/feishu-cli.js",
-    "typecheck": "tsc --noEmit"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build"
   },
   "keywords": [
     "feishu",
@@ -23,6 +25,17 @@
   ],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lixiaolin94/feishu-cli.git"
+  },
+  "homepage": "https://github.com/lixiaolin94/feishu-cli#readme",
+  "bugs": {
+    "url": "https://github.com/lixiaolin94/feishu-cli/issues"
+  },
   "type": "commonjs",
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.59.0",
@@ -35,6 +48,7 @@
   "devDependencies": {
     "@types/node": "^24.5.2",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }

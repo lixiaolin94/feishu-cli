@@ -1,6 +1,7 @@
 import { GenTools } from "../../ref/lark-openapi-mcp-main/src/mcp-tool/tools/en/gen-tools";
-import { BuiltinTools } from "../../ref/lark-openapi-mcp-main/src/mcp-tool/tools/en/builtin-tools";
+import type { Client } from "@larksuiteoapi/node-sdk";
 import { z } from "zod";
+import { NativeBuiltinTools } from "./builtin";
 
 export interface ToolSchema {
   path?: z.ZodTypeAny;
@@ -19,7 +20,7 @@ export interface ToolDef {
   accessTokens?: string[];
   supportFileUpload?: boolean;
   supportFileDownload?: boolean;
-  customHandler?: (client: unknown, params: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
+  nativeHandler?: (client: Client, params: Record<string, unknown>, userAccessToken?: string) => Promise<unknown>;
 }
 
-export const allTools = [...GenTools, ...BuiltinTools] as ToolDef[];
+export const allTools = [...GenTools, ...NativeBuiltinTools] as ToolDef[];

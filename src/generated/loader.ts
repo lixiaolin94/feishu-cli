@@ -125,7 +125,7 @@ function requiresUserToken(tool: ToolDef): boolean {
   return supportsUserToken(tool) && !supportsTenantToken(tool);
 }
 
-function resolveToolUseUAT(tool: ToolDef, tokenMode: TokenMode, requestedUseUAT?: boolean): boolean | undefined {
+export function resolveToolUseUAT(tool: ToolDef, tokenMode: TokenMode, requestedUseUAT?: boolean): boolean | undefined {
   if (requiresUserToken(tool)) {
     if (tokenMode === "tenant") {
       throw new Error(
@@ -145,7 +145,7 @@ function resolveToolUseUAT(tool: ToolDef, tokenMode: TokenMode, requestedUseUAT?
   return shouldUseUAT;
 }
 
-function parseToolName(toolName: string) {
+export function parseToolName(toolName: string) {
   const segments = toolName.split(".");
   if (segments.length < 3) {
     throw new Error(`Unsupported tool name: ${toolName}`);
