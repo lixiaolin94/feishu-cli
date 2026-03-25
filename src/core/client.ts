@@ -1,5 +1,11 @@
 import { Client, LoggerLevel } from "@larksuiteoapi/node-sdk";
-import { ResolvedConfig } from "./config";
+
+export interface ClientConfig {
+  appId?: string;
+  appSecret?: string;
+  baseUrl: string;
+  debug: boolean;
+}
 
 let cachedClient: Client | null = null;
 let cachedKey = "";
@@ -28,7 +34,7 @@ const stderrLogger = {
 
 type FeishuCliClient = Client & { __feishuCliDebug?: boolean };
 
-export function getClient(config: ResolvedConfig): Client {
+export function getClient(config: ClientConfig): Client {
   if (!config.appId || !config.appSecret) {
     throw new Error("Missing app_id or app_secret. Run `feishu-cli config init` or set FEISHU_APP_ID / FEISHU_APP_SECRET.");
   }

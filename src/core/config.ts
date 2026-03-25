@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import YAML from "yaml";
+import { parseBooleanLenient } from "./utils";
 
 export type OutputFormat = "json" | "table" | "yaml";
 export type TokenMode = "auto" | "user" | "tenant";
@@ -73,20 +74,7 @@ function ensureObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-function parseBoolean(value: string | undefined): boolean | undefined {
-  if (value === undefined || value === "") {
-    return undefined;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  if (["1", "true", "yes", "on"].includes(normalized)) {
-    return true;
-  }
-  if (["0", "false", "no", "off"].includes(normalized)) {
-    return false;
-  }
-  return undefined;
-}
+const parseBoolean = parseBooleanLenient;
 
 function parseOutputFormat(value: string | undefined): OutputFormat | undefined {
   if (!value) {

@@ -1,42 +1,27 @@
 import { Command, Option } from "commander";
 import { z } from "zod";
 import { getClient } from "../core/client";
-import { GlobalCliOptions, ResolvedConfig, TokenMode, getShouldUseUAT, resolveConfig } from "../core/config";
+import { GlobalCliOptions, ResolvedConfig, resolveConfig } from "../core/config";
 import { executeTool } from "../core/executor";
 import { printOutput } from "../core/output";
 import { executeWithPagination, getPaginationSpec, mergePaginatedResults } from "../core/pagination";
 import { executeWithRetry } from "../core/retry";
 import { getShape, unwrapSchema } from "../core/schema";
-import { toKebab, toOptionName, parseJsonValue } from "../core/utils";
+import { PARAM_BUCKETS, type ParamBucket, toKebab, toOptionName, parseJsonValue, parseBooleanStrict } from "../core/utils";
 import { resolveUserAccessToken } from "../core/auth/resolve";
 import { ToolDef } from "../tools";
-import { getAllTools, getCollisionKeys, parseToolName } from "./registry";
+import { getAllTools, getCollisionKeys, parseToolName, RESERVED_TOP_LEVEL_COMMANDS, supportsUserToken, requiresUserToken, resolveToolUseUAT } from "./registry";
 
-const PARAM_BUCKETS = ["path", "params", "data"] as const;
-const RESERVED_TOP_LEVEL_COMMANDS = new Set(["auth", "config", "msg"]);
 const MAX_PAGINATION_PAGES = 100;
 
 interface OptionBinding {
-  bucket: (typeof PARAM_BUCKETS)[number];
+  bucket: ParamBucket;
   key: string;
   optionName: string;
 }
 
-type AccessTokenKind = "tenant" | "user";
-
 function isConfigInjectedKey(key: string): boolean {
   return key === "app_id" || key === "app_secret";
-}
-
-function parseBooleanValue(value: string): boolean {
-  const normalized = value.trim().toLowerCase();
-  if (["1", "true", "yes", "on"].includes(normalized)) {
-    return true;
-  }
-  if (["0", "false", "no", "off"].includes(normalized)) {
-    return false;
-  }
-  throw new Error(`Invalid boolean value: ${value}`);
 }
 
 function createOption(key: string, schema: z.ZodTypeAny, originalKey?: string): Option {
@@ -54,7 +39,7 @@ function createOption(key: string, schema: z.ZodTypeAny, originalKey?: string): 
   } else if (unwrapped instanceof z.ZodNumber) {
     option = new Option(`${flagName} <number>`, description).argParser((value) => Number(value));
   } else if (unwrapped instanceof z.ZodBoolean) {
-    option = new Option(`${flagName} <boolean>`, description).argParser(parseBooleanValue);
+    option = new Option(`${flagName} <boolean>`, description).argParser(parseBooleanStrict);
   } else if (unwrapped instanceof z.ZodEnum) {
     option = new Option(`${flagName} <value>`, description).choices(unwrapped.options as string[]);
   } else {
@@ -71,43 +56,6 @@ function createOption(key: string, schema: z.ZodTypeAny, originalKey?: string): 
 
 function stripDescription(description: string): string {
   return description.replace(/^\[Feishu\/Lark\]-/i, "").trim();
-}
-
-function getAccessTokens(tool: ToolDef): Set<AccessTokenKind> {
-  return new Set((tool.accessTokens ?? []).filter((token): token is AccessTokenKind => token === "tenant" || token === "user"));
-}
-
-function supportsUserToken(tool: ToolDef): boolean {
-  return getAccessTokens(tool).has("user");
-}
-
-function supportsTenantToken(tool: ToolDef): boolean {
-  const accessTokens = getAccessTokens(tool);
-  return accessTokens.size === 0 || accessTokens.has("tenant");
-}
-
-function requiresUserToken(tool: ToolDef): boolean {
-  return supportsUserToken(tool) && !supportsTenantToken(tool);
-}
-
-export function resolveToolUseUAT(tool: ToolDef, tokenMode: TokenMode, requestedUseUAT?: boolean): boolean | undefined {
-  if (requiresUserToken(tool)) {
-    if (tokenMode === "tenant") {
-      throw new Error(
-        `Tool ${tool.name} only supports user access token, but token mode is set to tenant. Use \`--token-mode user\` or remove the tenant override.`,
-      );
-    }
-    return true;
-  }
-
-  const shouldUseUAT = getShouldUseUAT(tokenMode, requestedUseUAT);
-  if (shouldUseUAT && !supportsUserToken(tool)) {
-    throw new Error(`Tool ${tool.name} does not support user access token. Use tenant mode or remove --use-uat.`);
-  }
-  if (shouldUseUAT === false && !supportsTenantToken(tool)) {
-    throw new Error(`Tool ${tool.name} requires user access token. Re-run with --use-uat or --token-mode user.`);
-  }
-  return shouldUseUAT;
 }
 
 function ensureSubcommand(
@@ -229,7 +177,7 @@ export function registerGeneratedCommands(program: Command): void {
 
     if (supportsUserToken(tool)) {
       const useUatOption = new Option("--use-uat <boolean>", "Use user access token for this API call").argParser(
-        parseBooleanValue,
+        parseBooleanStrict,
       );
       if (requiresUserToken(tool)) {
         useUatOption.default(true);
@@ -286,6 +234,3 @@ export function registerGeneratedCommands(program: Command): void {
     });
   }
 }
-
-export { parseToolName } from "./registry";
-export { getPaginationSpec, mergePaginatedResults } from "../core/pagination";

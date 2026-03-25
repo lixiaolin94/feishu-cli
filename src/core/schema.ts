@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ToolDef } from "../tools";
+import { PARAM_BUCKETS } from "./utils";
 
 export type JsonSchemaType = "string" | "number" | "integer" | "boolean" | "object" | "array" | "null";
 
@@ -137,7 +138,7 @@ export function toolParamsToJsonSchema(tool: ToolDef): JsonSchema {
   const properties: Record<string, JsonSchema> = {};
   const required: string[] = [];
 
-  for (const bucket of ["path", "params", "data"] as const) {
+  for (const bucket of PARAM_BUCKETS) {
     if (!tool.schema[bucket]) {
       continue;
     }

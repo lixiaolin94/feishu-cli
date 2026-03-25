@@ -1,16 +1,16 @@
 import type { ToolDef } from "../tools";
-import { clonePayload } from "./utils";
+import { PARAM_BUCKETS, clonePayload } from "./utils";
 import { getShape } from "./schema";
 
 const DEFAULT_MAX_PAGES = 100;
 
 export interface PaginationSpec {
-  bucket: "path" | "params" | "data";
+  bucket: (typeof PARAM_BUCKETS)[number];
   key: "page_token";
 }
 
 export function getPaginationSpec(tool: ToolDef): PaginationSpec | undefined {
-  for (const bucket of ["path", "params", "data"] as const) {
+  for (const bucket of PARAM_BUCKETS) {
     const shape = getShape(tool.schema[bucket]);
     if (shape.page_token) {
       return { bucket, key: "page_token" };

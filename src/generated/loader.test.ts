@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { getPaginationSpec, mergePaginatedResults, parseToolName, resolveToolUseUAT } from "./loader";
+import { parseToolName, resolveToolUseUAT } from "./registry";
+import { getPaginationSpec, mergePaginatedResults } from "../core/pagination";
 import type { ToolDef } from "../tools";
 
 function makeTool(accessTokens: string[], schema: ToolDef["schema"] = {}): ToolDef {

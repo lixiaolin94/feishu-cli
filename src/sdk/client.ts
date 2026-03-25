@@ -1,6 +1,7 @@
 import type { FeishuBatchRequest, FeishuClientOptions, FeishuResult, ToolInfo } from "./types";
 import { getClient } from "../core/client";
 import { DEFAULT_BASE_URL, type TokenMode } from "../core/config";
+import { PARAM_BUCKETS } from "../core/utils";
 import { mapError } from "../core/errors";
 import { executeTool } from "../core/executor";
 import { executeWithPagination, getPaginationSpec } from "../core/pagination";
@@ -8,14 +9,14 @@ import { executeWithRetry } from "../core/retry";
 import type { JsonSchema } from "../core/schema";
 import { toolParamsToJsonSchema } from "../core/schema";
 import { findToolByName, getAllTools, getCliCommand, getToolsByProject, searchTools as searchRegistryTools } from "../generated/registry";
-import { resolveToolUseUAT } from "../generated/loader";
+import { resolveToolUseUAT } from "../generated/registry";
 import { debugLog } from "../core/logger";
 import type { ToolDef } from "../tools";
 
 function validatePayload(tool: ToolDef, params: Record<string, unknown>): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
 
-  for (const bucket of ["path", "params", "data"] as const) {
+  for (const bucket of PARAM_BUCKETS) {
     if (!(bucket in params)) {
       continue;
     }
@@ -151,18 +152,8 @@ export class FeishuClient {
       const client = getClient({
         appId: this.appId,
         appSecret: this.appSecret,
-        userAccessToken: this.userAccessToken,
         baseUrl: this.baseUrl,
-        tokenMode: this.tokenMode,
-        maxRetries: this.maxRetries,
         debug: this.debug,
-        output: { format: "json" },
-        profile: undefined,
-        configPath: "",
-        configDir: "",
-        tokenPath: "",
-        compact: false,
-        color: true,
       });
 
       const pagination = getPaginationSpec(tool);

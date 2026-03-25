@@ -1,7 +1,47 @@
 import { allTools, ToolDef } from "../tools";
+import { getShouldUseUAT, TokenMode } from "../core/config";
 import { toKebab } from "../core/utils";
 
-const RESERVED_TOP_LEVEL_COMMANDS = new Set(["auth", "config", "msg"]);
+export const RESERVED_TOP_LEVEL_COMMANDS = new Set(["auth", "config", "msg"]);
+
+type AccessTokenKind = "tenant" | "user";
+
+function getAccessTokens(tool: ToolDef): Set<AccessTokenKind> {
+  return new Set((tool.accessTokens ?? []).filter((token): token is AccessTokenKind => token === "tenant" || token === "user"));
+}
+
+export function supportsUserToken(tool: ToolDef): boolean {
+  return getAccessTokens(tool).has("user");
+}
+
+export function supportsTenantToken(tool: ToolDef): boolean {
+  const accessTokens = getAccessTokens(tool);
+  return accessTokens.size === 0 || accessTokens.has("tenant");
+}
+
+export function requiresUserToken(tool: ToolDef): boolean {
+  return supportsUserToken(tool) && !supportsTenantToken(tool);
+}
+
+export function resolveToolUseUAT(tool: ToolDef, tokenMode: TokenMode, requestedUseUAT?: boolean): boolean | undefined {
+  if (requiresUserToken(tool)) {
+    if (tokenMode === "tenant") {
+      throw new Error(
+        `Tool ${tool.name} only supports user access token, but token mode is set to tenant. Use \`--token-mode user\` or remove the tenant override.`,
+      );
+    }
+    return true;
+  }
+
+  const shouldUseUAT = getShouldUseUAT(tokenMode, requestedUseUAT);
+  if (shouldUseUAT && !supportsUserToken(tool)) {
+    throw new Error(`Tool ${tool.name} does not support user access token. Use tenant mode or remove --use-uat.`);
+  }
+  if (shouldUseUAT === false && !supportsTenantToken(tool)) {
+    throw new Error(`Tool ${tool.name} requires user access token. Re-run with --use-uat or --token-mode user.`);
+  }
+  return shouldUseUAT;
+}
 
 export function getAllTools(): ToolDef[] {
   return allTools;
