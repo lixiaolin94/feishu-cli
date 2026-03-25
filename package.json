@@ -1,5 +1,5 @@
 {
-  "name": "feishu-cli",
+  "name": "@lixiaolin94/feishu-cli",
   "version": "0.1.0",
   "description": "CLI for Feishu/Lark Open Platform APIs",
   "main": "dist/index.js",

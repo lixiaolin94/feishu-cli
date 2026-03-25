@@ -5,7 +5,7 @@ Command-line access to Feishu / Lark Open Platform APIs, built as a pure Node.js
 ## Install
 
 ```bash
-npm install -g feishu-cli
+npm install -g @lixiaolin94/feishu-cli
 ```
 
 Or run locally from the repo:
@@ -177,7 +177,7 @@ feishu-cli doc export Rnxxxxxxxxx
 Use the same execution engine from Node.js without shelling out:
 
 ```ts
-import { FeishuClient } from "feishu-cli/sdk";
+import { FeishuClient } from "@lixiaolin94/feishu-cli/sdk";
 
 const client = new FeishuClient({
   appId: process.env.FEISHU_APP_ID!,
