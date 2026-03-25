@@ -12,6 +12,42 @@ interface ExecRequest {
   all?: boolean;
 }
 
+function getSingleRequestObject(request: unknown): ExecRequest & Record<string, unknown> {
+  if (Array.isArray(request)) {
+    throw new Error("Received a JSON array in single-request mode. Re-run with --batch.");
+  }
+
+  if (!request || typeof request !== "object") {
+    return {};
+  }
+
+  return request as ExecRequest & Record<string, unknown>;
+}
+
+function resolveSinglePayload(
+  toolName: string | undefined,
+  requestObject: ExecRequest & Record<string, unknown>,
+  paramsOption: unknown,
+): Record<string, unknown> {
+  if (Array.isArray(paramsOption)) {
+    throw new Error("Received a JSON array in single-request mode. Re-run with --batch.");
+  }
+
+  if (paramsOption && typeof paramsOption === "object") {
+    return paramsOption as Record<string, unknown>;
+  }
+
+  if (requestObject.params) {
+    return requestObject.params;
+  }
+
+  if (toolName) {
+    return requestObject;
+  }
+
+  return {};
+}
+
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
 
@@ -103,25 +139,14 @@ export function registerExec(program: Command): void {
         return;
       }
 
-      if (Array.isArray(localOptions.params)) {
-        throw new Error("Received a JSON array in single-request mode. Re-run with --batch.");
-      }
-
-      const singleRequest = (localOptions.params as Record<string, unknown> | undefined) ??
-          (!Array.isArray(request) && request && typeof request === "object" ? ((request as ExecRequest).params ?? (toolName ? (request as Record<string, unknown>) : {})) : undefined);
-      if (Array.isArray(request)) {
-        throw new Error("Received a JSON array in single-request mode. Re-run with --batch.");
-      }
-
-      const requestObject =
-        request && typeof request === "object" && !Array.isArray(request) ? (request as ExecRequest & Record<string, unknown>) : {};
+      const requestObject = getSingleRequestObject(request);
       const finalToolName = toolName ?? requestObject.tool;
 
       if (!finalToolName) {
         throw new Error("Missing tool name. Pass it as an argument or in stdin JSON as {\"tool\":\"...\"}.");
       }
 
-      const payload = singleRequest ?? requestObject.params ?? {};
+      const payload = resolveSinglePayload(toolName, requestObject, localOptions.params);
       const result = localOptions.dryRun
         ? await client.validate(finalToolName, payload)
         : localOptions.all || requestObject.all

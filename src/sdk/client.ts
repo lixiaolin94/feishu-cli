@@ -90,6 +90,8 @@ export class FeishuClient {
   }
 
   async executeBatch(requests: FeishuBatchRequest[]): Promise<FeishuResult[]> {
+    // Keep batch execution serial for deterministic ordering and to avoid
+    // amplifying rate limits by default. Concurrency can be added explicitly later.
     const results: FeishuResult[] = [];
     for (const request of requests) {
       results.push(request.all ? await this.executeAll(request.tool, request.params ?? {}) : await this.execute(request.tool, request.params ?? {}));

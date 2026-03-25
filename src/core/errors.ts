@@ -7,7 +7,7 @@ export interface FeishuError {
   logId?: string;
 }
 
-interface ApiErrorPayload {
+export interface ApiErrorPayload {
   code?: number;
   msg?: string;
   log_id?: string;
@@ -26,7 +26,7 @@ export class FeishuCliError extends Error {
   }
 }
 
-function extractApiErrorPayload(error: unknown): ApiErrorPayload | undefined {
+export function extractApiErrorPayload(error: unknown): ApiErrorPayload | undefined {
   if (!error || typeof error !== "object") {
     return undefined;
   }

@@ -132,11 +132,18 @@ export const nativeDocxImportTool: ToolDef = {
       .object({
         markdown: z.string().describe("Markdown file content"),
         file_name: z.string().describe("File name").max(27).optional(),
+        max_attempts: z.number().int().positive().max(120).optional().describe("Maximum poll attempts while waiting for import"),
+        poll_interval_ms: z.number().int().positive().max(10000).optional().describe("Delay between import status polls"),
       })
       .describe("Request body"),
   },
   nativeHandler: async (client, params, userAccessToken): Promise<unknown> => {
-    const data = params.data as { markdown: string; file_name?: string };
+    const data = params.data as {
+      markdown: string;
+      file_name?: string;
+      max_attempts?: number;
+      poll_interval_ms?: number;
+    };
     const uploadFileName = data.file_name
       ? data.file_name.toLowerCase().endsWith(".md")
         ? data.file_name
@@ -148,6 +155,8 @@ export const nativeDocxImportTool: ToolDef = {
       documentTitle: data.file_name,
       useUAT: Boolean(params.useUAT),
       userAccessToken,
+      maxAttempts: data.max_attempts,
+      pollIntervalMs: data.poll_interval_ms,
     });
 
     return result.task;

@@ -1,34 +1,7 @@
 import * as lark from "@larksuiteoapi/node-sdk";
 import { ToolDef } from "../tools";
-import { FeishuCliError, mapError } from "./errors";
+import { extractApiErrorPayload, FeishuCliError, mapError } from "./errors";
 import { debugLog } from "./logger";
-
-interface ApiErrorPayload {
-  code?: number;
-  msg?: string;
-  log_id?: string;
-  logId?: string;
-  error?: unknown;
-  permission_violations?: unknown;
-}
-
-function extractApiErrorPayload(error: unknown): ApiErrorPayload | undefined {
-  if (!error || typeof error !== "object") {
-    return undefined;
-  }
-
-  const candidate = error as {
-    code?: number;
-    msg?: string;
-    log_id?: string;
-    logId?: string;
-    error?: unknown;
-    permission_violations?: unknown;
-    response?: { data?: ApiErrorPayload };
-  };
-
-  return candidate.response?.data ?? candidate;
-}
 
 export function assertSuccessfulResult(result: unknown): unknown {
   const payload = extractApiErrorPayload(result);
