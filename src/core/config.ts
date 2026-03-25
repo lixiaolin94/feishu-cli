@@ -63,7 +63,7 @@ export interface ResolvedConfig {
   color: boolean;
 }
 
-const DEFAULT_BASE_URL = "https://open.feishu.cn";
+export const DEFAULT_BASE_URL = "https://open.feishu.cn";
 const DEFAULT_OUTPUT_FORMAT: OutputFormat = "json";
 
 function ensureObject(value: unknown): Record<string, unknown> {

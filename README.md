@@ -71,6 +71,7 @@ Custom high-level commands:
 
 - `feishu-cli auth login|status|logout|callback`
 - `feishu-cli config init|show|set`
+- `feishu-cli exec`
 - `feishu-cli msg send`
 - `feishu-cli doc import`
 - `feishu-cli doc export`
@@ -164,6 +165,62 @@ Export raw document content:
 
 ```bash
 feishu-cli doc export Rnxxxxxxxxx
+```
+
+## Programmatic API
+
+Use the same execution engine from Node.js without shelling out:
+
+```ts
+import { FeishuClient } from "feishu-cli/sdk";
+
+const client = new FeishuClient({
+  appId: process.env.FEISHU_APP_ID!,
+  appSecret: process.env.FEISHU_APP_SECRET!,
+  userAccessToken: process.env.FEISHU_USER_ACCESS_TOKEN,
+});
+
+const tools = client.searchTools("chat");
+const info = client.describeTool("im.v1.chat.list");
+const result = await client.execute("im.v1.chat.list", {
+  params: { page_size: 5 },
+});
+
+if (result.ok) {
+  console.log(result.data);
+} else {
+  console.error(result.error?.code, result.error?.message);
+}
+```
+
+`FeishuClient` exposes:
+
+- `listTools(namespace?)`
+- `searchTools(keyword)`
+- `describeTool(toolName)`
+- `execute(toolName, params?)`
+- `executeAll(toolName, params?)`
+
+All execution methods return structured `{ ok, data, error }` results instead of throwing, which makes the SDK easier to use from agents and automation.
+
+## Agent Integration
+
+For non-Node agents or shell pipelines, use structured execution mode:
+
+```bash
+echo '{"tool":"im.v1.chat.list","params":{"params":{"page_size":5}}}' | feishu-cli exec --stdin
+feishu-cli exec im.v1.chat.list --params '{"params":{"page_size":5}}'
+```
+
+`exec` always returns structured JSON:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "code": 0
+  }
+}
 ```
 
 ## Output Formats

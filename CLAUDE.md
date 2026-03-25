@@ -18,6 +18,8 @@ TypeScript CLI for Feishu / Lark Open Platform APIs. The project reuses the offi
   Resolves config from `config.yaml`, profile overrides, environment variables, and global CLI flags.
 - `src/core/executor.ts`
   Executes generated SDK methods, raw HTTP fallbacks, and local builtin `nativeHandler` tools. Also normalizes common API errors.
+- `src/sdk/**`
+  Programmatic agent-friendly wrapper over the same execution engine. `FeishuClient` exposes discovery plus structured `{ ok, data, error }` execution.
 - `src/commands/**`
   Custom user-facing commands such as `auth`, `config`, `msg send`, and `doc import/export`.
 
@@ -30,7 +32,8 @@ Generated commands come from official tool names:
 - Reserved namespaces are remapped:
   - `auth.*` -> `feishu-cli auth-api ...`
   - `config.*` -> `feishu-cli config-api ...`
-  - `msg` stays custom at top level
+- `msg` stays custom at top level
+- `exec` is a structured bridge command for agents and shell scripts
 
 For generated commands:
 
@@ -82,10 +85,13 @@ Shared token routing logic lives in `src/core/config.ts` as `getShouldUseUAT(tok
   Defaults to official Drive import flow (`drive.media.uploadAll` + `drive.importTask`). Use `--legacy` for the plain-text block fallback. Passing `--document-id` forces legacy mode because the official import flow creates a new document instead of appending.
 - `doc export`
   Current implementation uses `docx document rawContent`, which is useful but not yet high-fidelity Markdown export.
+- `exec`
+  Executes one tool from JSON input and always returns structured JSON. Internally it uses the SDK layer rather than Commander-generated flags.
 
 ## Development Notes
 
 - Prefer generated tools unless a command needs higher-level UX or multi-step orchestration.
+- If you need agent or library integration, prefer `src/sdk/FeishuClient` over shelling out to the CLI.
 - When debugging token problems, check `feishu-cli auth status` first and verify the scope list on the stored user token.
 - Keep stdout machine-friendly. Human guidance and transient diagnostics should go to stderr or structured error messages.
 - Generated API definitions come from the published `@larksuiteoapi/lark-mcp` package, not from a checked-in `ref/` directory.

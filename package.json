@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "description": "CLI for Feishu/Lark Open Platform APIs",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./sdk": "./dist/sdk/index.js",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "feishu-cli": "bin/feishu-cli.js"
   },

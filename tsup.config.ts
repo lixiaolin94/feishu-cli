@@ -1,7 +1,11 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: {
+    index: "src/index.ts",
+    "cli-main": "src/cli-main.ts",
+    "sdk/index": "src/sdk/index.ts",
+  },
   format: ["cjs"],
   target: "node20",
   platform: "node",
@@ -9,8 +13,6 @@ export default defineConfig({
   clean: true,
   sourcemap: false,
   bundle: true,
+  dts: true,
   shims: false,
-  banner: {
-    js: "#!/usr/bin/env node",
-  },
 });

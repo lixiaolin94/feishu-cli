@@ -11,6 +11,7 @@ import { registerConfigSet } from "./commands/config/set";
 import { registerApiSearch } from "./commands/api/search";
 import { registerApiList } from "./commands/api/list";
 import { registerApiInfo } from "./commands/api/info";
+import { registerExec } from "./commands/exec";
 import { registerMsgSend } from "./commands/custom/msg-send";
 import { registerDocImport } from "./commands/custom/doc-import";
 import { registerDocExport } from "./commands/custom/doc-export";
@@ -47,6 +48,7 @@ export function createProgram(): Command {
 Core Commands:
   auth        OAuth login helpers
   config      Configuration helpers
+  exec        Structured JSON execution for agents and scripts
   doc         High-level document helpers
   msg         High-level messaging helpers
   api         Search and discover available APIs
@@ -61,6 +63,7 @@ Examples:
   feishu-cli auth login --manual
   feishu-cli api search chat
   feishu-cli api info im.v1.chat.list
+  echo '{"tool":"im.v1.chat.list","params":{"params":{"page_size":5}}}' | feishu-cli exec --stdin
   feishu-cli im message create --receive-id-type email --receive-id user@example.com --msg-type text --content '{"text":"hello"}'
   feishu-cli im chat list --page-size 5
   feishu-cli --token-mode user docx builtin search --search-key "weekly"
@@ -83,6 +86,7 @@ Examples:
   registerApiSearch(apiCommand);
   registerApiList(apiCommand);
   registerApiInfo(apiCommand);
+  registerExec(program);
 
   const docCommand = program.command("doc").description("High-level document helpers");
   registerDocImport(docCommand);
