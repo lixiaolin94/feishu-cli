@@ -38,6 +38,7 @@ For generated commands:
 - `app_id` and `app_secret` default from config or `.env` when omitted.
 - If a tool supports user tokens, the loader adds `--use-uat`.
 - If a tool is user-only, `--use-uat` defaults to `true`.
+- If a tool exposes `page_token`, the loader also adds `--all` to fetch every page automatically.
 
 ## Token Routing
 

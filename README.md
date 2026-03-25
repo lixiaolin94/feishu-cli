@@ -42,6 +42,7 @@ feishu-cli auth login
 ```bash
 feishu-cli im chat list --page-size 5
 feishu-cli --token-mode user search message create --query test
+feishu-cli drive file list --page-size 50 --all
 ```
 
 ## Command Overview
@@ -109,6 +110,7 @@ Examples:
 feishu-cli im chat list
 feishu-cli im chat list --use-uat true
 feishu-cli --token-mode user search message create --query test
+feishu-cli drive file list --page-size 50 --all
 feishu-cli --token-mode tenant msg send --to user@example.com --text hello
 ```
 

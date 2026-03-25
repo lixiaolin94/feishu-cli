@@ -26,6 +26,12 @@ interface OptionBinding {
 }
 
 type AccessTokenKind = "tenant" | "user";
+type PaginationBucket = (typeof PARAM_BUCKETS)[number];
+
+interface PaginationSpec {
+  bucket: PaginationBucket;
+  key: "page_token";
+}
 
 function isConfigInjectedKey(key: string): boolean {
   return key === "app_id" || key === "app_secret";
@@ -198,6 +204,112 @@ function getInjectedConfigValue(key: string, config: ResolvedConfig): unknown {
   return undefined;
 }
 
+function clonePayload<T>(payload: T): T {
+  return structuredClone(payload);
+}
+
+export function getPaginationSpec(tool: ToolDef): PaginationSpec | undefined {
+  for (const bucket of PARAM_BUCKETS) {
+    const shape = getShape(tool.schema[bucket]);
+    if (shape.page_token) {
+      return { bucket, key: "page_token" };
+    }
+  }
+  return undefined;
+}
+
+function getPageState(result: unknown): { hasMore: boolean; nextPageToken?: string } {
+  const response = result && typeof result === "object" ? (result as Record<string, unknown>) : {};
+  const data = response.data && typeof response.data === "object" ? (response.data as Record<string, unknown>) : response;
+  const hasMore = data.has_more;
+  const nextPageToken = data.page_token ?? data.next_page_token;
+
+  return {
+    hasMore: typeof hasMore === "boolean" ? hasMore : Boolean(nextPageToken),
+    nextPageToken: typeof nextPageToken === "string" && nextPageToken ? nextPageToken : undefined,
+  };
+}
+
+export function mergePaginatedResults(results: unknown[]): unknown {
+  if (results.length <= 1) {
+    return results[0];
+  }
+
+  const merged = clonePayload(results[0]);
+  if (!merged || typeof merged !== "object") {
+    return results.at(-1);
+  }
+
+  const pages = results.filter((result): result is Record<string, unknown> => Boolean(result) && typeof result === "object");
+  const mergedRecord = merged as Record<string, unknown>;
+  const mergedData =
+    mergedRecord.data && typeof mergedRecord.data === "object" ? (mergedRecord.data as Record<string, unknown>) : undefined;
+
+  if (mergedData) {
+    const pageData = pages
+      .map((result) => result.data)
+      .filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
+
+    const arrayKeys = [...new Set(pageData.flatMap((data) => Object.keys(data).filter((key) => Array.isArray(data[key]))))];
+    for (const key of arrayKeys) {
+      mergedData[key] = pageData.flatMap((data) => (Array.isArray(data[key]) ? (data[key] as unknown[]) : []));
+    }
+
+    if ("has_more" in mergedData) {
+      mergedData.has_more = false;
+    }
+    delete mergedData.page_token;
+    delete mergedData.next_page_token;
+    return merged;
+  }
+
+  const arrayKeys = [...new Set(pages.flatMap((page) => Object.keys(page).filter((key) => Array.isArray(page[key]))))];
+  for (const key of arrayKeys) {
+    mergedRecord[key] = pages.flatMap((page) => (Array.isArray(page[key]) ? (page[key] as unknown[]) : []));
+  }
+  if ("has_more" in mergedRecord) {
+    mergedRecord.has_more = false;
+  }
+  delete mergedRecord.page_token;
+  delete mergedRecord.next_page_token;
+  return merged;
+}
+
+async function executeWithPagination(
+  client: ReturnType<typeof getClient>,
+  tool: ToolDef,
+  payload: Record<string, unknown>,
+  userAccessToken: string | undefined,
+  all: boolean,
+): Promise<unknown> {
+  const pagination = getPaginationSpec(tool);
+  if (!all || !pagination) {
+    return executeTool(client, tool, payload, userAccessToken);
+  }
+
+  const results: unknown[] = [];
+  const pagePayload = clonePayload(payload);
+
+  while (true) {
+    const result = await executeTool(client, tool, pagePayload, userAccessToken);
+    results.push(result);
+
+    const { hasMore, nextPageToken } = getPageState(result);
+    if (!hasMore || !nextPageToken) {
+      break;
+    }
+
+    const bucketPayload =
+      pagePayload[pagination.bucket] && typeof pagePayload[pagination.bucket] === "object"
+        ? (pagePayload[pagination.bucket] as Record<string, unknown>)
+        : {};
+    bucketPayload[pagination.key] = nextPageToken;
+    pagePayload[pagination.bucket] = bucketPayload;
+  }
+
+  return mergePaginatedResults(results);
+}
+
 function buildParams(
   tool: ToolDef,
   command: Command,
@@ -298,13 +410,17 @@ export function registerGeneratedCommands(program: Command): void {
       actionCommand.addOption(useUatOption);
     }
 
+    if (getPaginationSpec(tool)) {
+      actionCommand.addOption(new Option("--all", "Automatically fetch all pages for paginated APIs"));
+    }
+
     actionCommand.action(async (_localOptions, command: Command) => {
       const globalOptions = command.optsWithGlobals() as GlobalCliOptions;
+      const localOptions = command.opts() as { useUat?: boolean; all?: boolean };
 
       const config = await resolveConfig(globalOptions);
       const client = getClient(config);
-      const requestedUseUAT = (command.opts() as { useUat?: boolean }).useUat;
-      const shouldUseUAT = resolveToolUseUAT(tool, config.tokenMode, requestedUseUAT);
+      const shouldUseUAT = resolveToolUseUAT(tool, config.tokenMode, localOptions.useUat);
       const payload = buildParams(tool, command, optionBindings, config, shouldUseUAT);
       const userAccessToken = shouldUseUAT
         ? await resolveUserAccessToken({
@@ -316,7 +432,7 @@ export function registerGeneratedCommands(program: Command): void {
           })
         : undefined;
 
-      const result = await executeTool(client, tool, payload, userAccessToken);
+      const result = await executeWithPagination(client, tool, payload, userAccessToken, Boolean(localOptions.all));
       printOutput(result, {
         format: config.output.format,
         compact: config.compact,
