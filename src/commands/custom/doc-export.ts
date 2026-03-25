@@ -2,36 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Command } from "commander";
 import { getClient } from "../../core/client";
-import { TokenMode, resolveConfig } from "../../core/config";
+import { GlobalCliOptions, getShouldUseUAT, resolveConfig } from "../../core/config";
 import { executeTool } from "../../core/executor";
 import { printOutput } from "../../core/output";
 import { resolveUserAccessToken } from "../../core/auth/resolve";
 import { findToolByName } from "../../generated/registry";
 import { parseDocumentId } from "./doc-helpers";
-
-interface GlobalOptions {
-  config?: string;
-  profile?: string;
-  output?: "json" | "table" | "yaml";
-  userToken?: string;
-  baseUrl?: string;
-  tokenMode?: TokenMode;
-  debug?: boolean;
-  compact?: boolean;
-  color?: boolean;
-}
-
-function getShouldUseUAT(tokenMode: TokenMode, useUAT?: boolean): boolean {
-  switch (tokenMode) {
-    case "user":
-      return true;
-    case "tenant":
-      return false;
-    case "auto":
-    default:
-      return Boolean(useUAT);
-  }
-}
 
 export function registerDocExport(docCommand: Command): void {
   docCommand
@@ -42,7 +18,7 @@ export function registerDocExport(docCommand: Command): void {
     .option("--front-matter", "Include basic front matter")
     .option("--use-uat", "Use user access token")
     .action(async (target, localOptions, command: Command) => {
-      const globalOptions = command.optsWithGlobals() as GlobalOptions;
+      const globalOptions = command.optsWithGlobals() as GlobalCliOptions;
 
       const config = await resolveConfig(globalOptions);
       const client = getClient(config);

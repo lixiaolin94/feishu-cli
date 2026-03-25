@@ -33,6 +33,18 @@ export interface GlobalCliOptions {
   color?: boolean;
 }
 
+export function getShouldUseUAT(tokenMode: TokenMode, useUAT?: boolean): boolean | undefined {
+  switch (tokenMode) {
+    case "user":
+      return true;
+    case "tenant":
+      return false;
+    case "auto":
+    default:
+      return useUAT;
+  }
+}
+
 export interface ResolvedConfig {
   appId?: string;
   appSecret?: string;

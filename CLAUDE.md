@@ -26,7 +26,7 @@ TypeScript CLI for Feishu / Lark Open Platform APIs. The project reuses the offi
 Generated commands come from official tool names:
 
 - `im.v1.chat.list` -> `feishu-cli im chat list`
-- `search.v2.message.create` -> `feishu-cli search v2 message create`
+- `search.v2.message.create` -> `feishu-cli search message create`
 - Reserved namespaces are remapped:
   - `auth.*` -> `feishu-cli auth-api ...`
   - `config.*` -> `feishu-cli config-api ...`
@@ -67,6 +67,8 @@ Relevant settings:
 - `FEISHU_OUTPUT_FORMAT`
 - `FEISHU_DEBUG`
 
+Shared token routing logic lives in `src/core/config.ts` as `getShouldUseUAT(tokenMode, useUAT)`. Generated commands apply extra access-token compatibility checks in `src/generated/loader.ts`.
+
 ## Custom Commands
 
 - `auth login|status|logout|callback`
@@ -76,7 +78,7 @@ Relevant settings:
 - `msg send`
   High-level bot message send helper.
 - `doc import`
-  Defaults to official Drive import flow (`drive.media.uploadAll` + `drive.importTask`). Use `--legacy` for the plain-text block fallback, or when appending to an existing document with `--document-id`.
+  Defaults to official Drive import flow (`drive.media.uploadAll` + `drive.importTask`). Use `--legacy` for the plain-text block fallback. Passing `--document-id` forces legacy mode because the official import flow creates a new document instead of appending.
 - `doc export`
   Current implementation uses `docx document rawContent`, which is useful but not yet high-fidelity Markdown export.
 

@@ -6,7 +6,6 @@ export interface ToolSchema {
   path?: z.ZodTypeAny;
   params?: z.ZodTypeAny;
   data?: z.ZodTypeAny;
-  useUAT?: z.ZodTypeAny;
 }
 
 export interface ToolDef {

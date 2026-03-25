@@ -4,38 +4,17 @@ import { Readable } from "node:stream";
 import * as lark from "@larksuiteoapi/node-sdk";
 import { Command } from "commander";
 import { getClient } from "../../core/client";
-import { TokenMode, resolveConfig } from "../../core/config";
+import { GlobalCliOptions, getShouldUseUAT, resolveConfig } from "../../core/config";
 import { resolveUserAccessToken } from "../../core/auth/resolve";
 import { executeTool } from "../../core/executor";
 import { printOutput } from "../../core/output";
 import { findToolByName } from "../../generated/registry";
 import { chunkBlocks, deriveTitle, markdownToSimpleBlocks, readMarkdownFile } from "./doc-helpers";
 
-interface GlobalOptions {
-  config?: string;
-  profile?: string;
-  output?: "json" | "table" | "yaml";
-  userToken?: string;
-  baseUrl?: string;
-  tokenMode?: TokenMode;
-  debug?: boolean;
-  compact?: boolean;
-  color?: boolean;
-}
-
-function getShouldUseUAT(tokenMode: TokenMode, useUAT?: boolean): boolean {
-  switch (tokenMode) {
-    case "user":
-      return true;
-    case "tenant":
-      return false;
-    case "auto":
-    default:
-      return Boolean(useUAT);
-  }
-}
-
-function getRequestOptions(useUAT: boolean, userAccessToken?: string): Array<ReturnType<typeof lark.withUserAccessToken>> {
+function getRequestOptions(
+  useUAT: boolean | undefined,
+  userAccessToken?: string,
+): Array<ReturnType<typeof lark.withUserAccessToken>> {
   if (!useUAT) {
     return [];
   }
@@ -77,7 +56,7 @@ async function importViaOfficialFlow(
   title: string,
   fileName: string,
   folderToken: string | undefined,
-  useUAT: boolean,
+  useUAT: boolean | undefined,
   userAccessToken: string | undefined,
 ): Promise<Record<string, unknown>> {
   const requestOptions = getRequestOptions(useUAT, userAccessToken);
@@ -165,7 +144,7 @@ async function importViaLegacyFlow(
   title: string,
   folderToken: string | undefined,
   documentId: string | undefined,
-  useUAT: boolean,
+  useUAT: boolean | undefined,
   userAccessToken: string | undefined,
 ): Promise<Record<string, unknown>> {
   const blocks = markdownToSimpleBlocks(markdown);
@@ -251,7 +230,7 @@ export function registerDocImport(docCommand: Command): void {
     .option("--legacy", "Use the legacy plain-text block importer instead of Drive importTask")
     .option("--use-uat", "Use user access token")
     .action(async (file, localOptions, command: Command) => {
-      const globalOptions = command.optsWithGlobals() as GlobalOptions;
+      const globalOptions = command.optsWithGlobals() as GlobalCliOptions;
       const config = await resolveConfig(globalOptions);
       const client = getClient(config);
       const useUAT = getShouldUseUAT(config.tokenMode, localOptions.useUat);

@@ -1,7 +1,7 @@
 import { Command, Option } from "commander";
 import { z } from "zod";
 import { getClient } from "../core/client";
-import { ResolvedConfig, TokenMode, resolveConfig } from "../core/config";
+import { GlobalCliOptions, ResolvedConfig, TokenMode, getShouldUseUAT, resolveConfig } from "../core/config";
 import { executeTool } from "../core/executor";
 import { printOutput } from "../core/output";
 import { resolveUserAccessToken } from "../core/auth/resolve";
@@ -123,18 +123,6 @@ function supportsTenantToken(tool: ToolDef): boolean {
 
 function requiresUserToken(tool: ToolDef): boolean {
   return supportsUserToken(tool) && !supportsTenantToken(tool);
-}
-
-function getShouldUseUAT(tokenMode: TokenMode, useUAT?: boolean): boolean | undefined {
-  switch (tokenMode) {
-    case "user":
-      return true;
-    case "tenant":
-      return false;
-    case "auto":
-    default:
-      return useUAT;
-  }
 }
 
 function resolveToolUseUAT(tool: ToolDef, tokenMode: TokenMode, requestedUseUAT?: boolean): boolean | undefined {
@@ -311,17 +299,7 @@ export function registerGeneratedCommands(program: Command): void {
     }
 
     actionCommand.action(async (_localOptions, command: Command) => {
-      const globalOptions = command.optsWithGlobals() as {
-        config?: string;
-        profile?: string;
-        output?: "json" | "table" | "yaml";
-        userToken?: string;
-        baseUrl?: string;
-        tokenMode?: TokenMode;
-        debug?: boolean;
-        compact?: boolean;
-        color?: boolean;
-      };
+      const globalOptions = command.optsWithGlobals() as GlobalCliOptions;
 
       const config = await resolveConfig(globalOptions);
       const client = getClient(config);

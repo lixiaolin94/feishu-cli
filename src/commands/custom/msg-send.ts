@@ -1,34 +1,10 @@
 import { Command } from "commander";
 import { getClient } from "../../core/client";
-import { TokenMode, resolveConfig } from "../../core/config";
+import { GlobalCliOptions, getShouldUseUAT, resolveConfig } from "../../core/config";
 import { executeTool } from "../../core/executor";
 import { printOutput } from "../../core/output";
 import { resolveUserAccessToken } from "../../core/auth/resolve";
 import { findToolByName } from "../../generated/registry";
-
-interface GlobalOptions {
-  config?: string;
-  profile?: string;
-  output?: "json" | "table" | "yaml";
-  userToken?: string;
-  baseUrl?: string;
-  tokenMode?: TokenMode;
-  debug?: boolean;
-  compact?: boolean;
-  color?: boolean;
-}
-
-function getShouldUseUAT(tokenMode: TokenMode, useUAT?: boolean): boolean {
-  switch (tokenMode) {
-    case "user":
-      return true;
-    case "tenant":
-      return false;
-    case "auto":
-    default:
-      return Boolean(useUAT);
-  }
-}
 
 export function registerMsgSend(program: Command): void {
   program
@@ -41,7 +17,7 @@ export function registerMsgSend(program: Command): void {
     .option("--receive-id-type <type>", "Receive ID type", "email")
     .option("--use-uat", "Force user access token")
     .action(async (localOptions, command: Command) => {
-      const globalOptions = command.optsWithGlobals() as GlobalOptions;
+      const globalOptions = command.optsWithGlobals() as GlobalCliOptions;
 
       const config = await resolveConfig(globalOptions);
       const client = getClient(config);
