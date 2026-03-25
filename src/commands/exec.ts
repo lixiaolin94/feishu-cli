@@ -4,6 +4,7 @@ import { FeishuClient } from "../sdk";
 import { GlobalCliOptions, resolveConfig } from "../core/config";
 import { printOutput } from "../core/output";
 import { resolveUserAccessToken } from "../core/auth/resolve";
+import { readStdinText } from "../core/cli-io";
 import { parseJsonValue } from "../core/utils";
 
 interface ExecRequest {
@@ -12,7 +13,13 @@ interface ExecRequest {
   all?: boolean;
 }
 
-function getSingleRequestObject(request: unknown): ExecRequest & Record<string, unknown> {
+interface NormalizedSingleRequest {
+  toolName: string;
+  payload: Record<string, unknown>;
+  all: boolean;
+}
+
+function asExecRequestObject(request: unknown): ExecRequest & Record<string, unknown> {
   if (Array.isArray(request)) {
     throw new Error("Received a JSON array in single-request mode. Re-run with --batch.");
   }
@@ -48,16 +55,23 @@ function resolveSinglePayload(
   return {};
 }
 
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = [];
+function normalizeSingleRequest(
+  toolName: string | undefined,
+  request: unknown,
+  paramsOption: unknown,
+): NormalizedSingleRequest {
+  const requestObject = asExecRequestObject(request);
+  const finalToolName = toolName ?? requestObject.tool;
 
-  return new Promise((resolve, reject) => {
-    process.stdin.on("data", (chunk) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    });
-    process.stdin.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-    process.stdin.on("error", reject);
-  });
+  if (!finalToolName) {
+    throw new Error("Missing tool name. Pass it as an argument or in stdin JSON as {\"tool\":\"...\"}.");
+  }
+
+  return {
+    toolName: finalToolName,
+    payload: resolveSinglePayload(toolName, requestObject, paramsOption),
+    all: Boolean(requestObject.all),
+  };
 }
 
 export function registerExec(program: Command): void {
@@ -75,7 +89,7 @@ export function registerExec(program: Command): void {
       const config = await resolveConfig(globalOptions);
       const stdinRequest =
         localOptions.stdin
-          ? ((() => readStdin())().then((content) => {
+          ? (readStdinText().then((content) => {
               const trimmed = content.trim();
               if (!trimmed) {
                 throw new Error("No JSON received on stdin.");
@@ -139,19 +153,12 @@ export function registerExec(program: Command): void {
         return;
       }
 
-      const requestObject = getSingleRequestObject(request);
-      const finalToolName = toolName ?? requestObject.tool;
-
-      if (!finalToolName) {
-        throw new Error("Missing tool name. Pass it as an argument or in stdin JSON as {\"tool\":\"...\"}.");
-      }
-
-      const payload = resolveSinglePayload(toolName, requestObject, localOptions.params);
+      const singleRequest = normalizeSingleRequest(toolName, request, localOptions.params);
       const result = localOptions.dryRun
-        ? await client.validate(finalToolName, payload)
-        : localOptions.all || requestObject.all
-          ? await client.executeAll(finalToolName, payload)
-          : await client.execute(finalToolName, payload);
+        ? await client.validate(singleRequest.toolName, singleRequest.payload)
+        : localOptions.all || singleRequest.all
+          ? await client.executeAll(singleRequest.toolName, singleRequest.payload)
+          : await client.execute(singleRequest.toolName, singleRequest.payload);
 
       printOutput(result, {
         format: "json",

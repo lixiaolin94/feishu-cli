@@ -1,36 +1,7 @@
-import { createInterface } from "node:readline/promises";
-import { Writable } from "node:stream";
 import { Command } from "commander";
+import { createPromptInterface, promptHidden } from "../../core/cli-io";
 import { FileConfig, getDefaultConfigPath, resolveConfig, saveConfigFile } from "../../core/config";
 import { printOutput } from "../../core/output";
-
-class MuteableOutput extends Writable {
-  muted = false;
-
-  _write(chunk: string | Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
-    if (!this.muted) {
-      process.stderr.write(chunk, encoding);
-    }
-    callback();
-  }
-}
-
-async function questionHidden(
-  rl: ReturnType<typeof createInterface>,
-  output: MuteableOutput,
-  prompt: string,
-  fallback?: string,
-): Promise<string | undefined> {
-  process.stderr.write(prompt);
-  output.muted = true;
-  try {
-    const answer = (await rl.question("")).trim();
-    process.stderr.write("\n");
-    return answer || fallback;
-  } finally {
-    output.muted = false;
-  }
-}
 
 export function registerConfigInit(configCommand: Command): void {
   configCommand
@@ -49,11 +20,7 @@ export function registerConfigInit(configCommand: Command): void {
       };
 
       const config = await resolveConfig(globalOptions);
-      const output = new MuteableOutput();
-      const rl = createInterface({
-        input: process.stdin,
-        output,
-      });
+      const { rl, output } = createPromptInterface();
 
       try {
         const existing = localOptions.force
@@ -69,7 +36,7 @@ export function registerConfigInit(configCommand: Command): void {
         const appId =
           (await rl.question(`app_id (from the Feishu app credentials)${existing.app_id ? ` [${existing.app_id}]` : ""}: `)).trim() ||
           existing.app_id;
-        const appSecret = await questionHidden(
+        const appSecret = await promptHidden(
           rl,
           output,
           `app_secret (input hidden)${existing.app_secret ? " [stored]" : ""}: `,

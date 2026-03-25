@@ -3,19 +3,8 @@ import { URL } from "node:url";
 import { resolveConfig } from "../../core/config";
 import { exchangeToken, parseCallbackUrl } from "../../core/auth/oauth";
 import { maskToken, saveToken } from "../../core/auth/token-store";
+import { readStdinText } from "../../core/cli-io";
 import { printOutput } from "../../core/output";
-
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = [];
-
-  return new Promise((resolve, reject) => {
-    process.stdin.on("data", (chunk) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    });
-    process.stdin.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-    process.stdin.on("error", reject);
-  });
-}
 
 export function registerAuthCallback(authCommand: Command): void {
   authCommand
@@ -44,7 +33,7 @@ export function registerAuthCallback(authCommand: Command): void {
         throw new Error("Pass the callback URL either as an argument or via --stdin, not both.");
       }
 
-      const resolvedCallbackUrl = localOptions.stdin ? (await readStdin()).trim() : callbackUrl;
+      const resolvedCallbackUrl = localOptions.stdin ? (await readStdinText()).trim() : callbackUrl;
       if (!resolvedCallbackUrl) {
         throw new Error("Missing callback URL. Pass it as an argument or pipe it with --stdin.");
       }
