@@ -1,4 +1,4 @@
-import { GenTools } from "../../ref/lark-openapi-mcp-main/src/mcp-tool/tools/en/gen-tools";
+import { GenTools } from "@larksuiteoapi/lark-mcp/dist/mcp-tool/tools/en/gen-tools";
 import type { Client } from "@larksuiteoapi/node-sdk";
 import { z } from "zod";
 import { NativeBuiltinTools } from "./builtin";

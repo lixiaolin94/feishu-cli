@@ -88,7 +88,7 @@ Shared token routing logic lives in `src/core/config.ts` as `getShouldUseUAT(tok
 - Prefer generated tools unless a command needs higher-level UX or multi-step orchestration.
 - When debugging token problems, check `feishu-cli auth status` first and verify the scope list on the stored user token.
 - Keep stdout machine-friendly. Human guidance and transient diagnostics should go to stderr or structured error messages.
-- `ref/` is reference material only and is excluded from git tracking.
+- Generated API definitions come from the published `@larksuiteoapi/lark-mcp` package, not from a checked-in `ref/` directory.
 
 ## Verification
 

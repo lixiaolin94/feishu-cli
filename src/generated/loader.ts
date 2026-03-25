@@ -10,6 +10,7 @@ import { getAllTools } from "./registry";
 
 const PARAM_BUCKETS = ["path", "params", "data"] as const;
 const RESERVED_TOP_LEVEL_COMMANDS = new Set(["auth", "config", "msg"]);
+const MAX_PAGINATION_PAGES = 100;
 
 function toKebab(value: string): string {
   return value.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/_/g, "-").toLowerCase();
@@ -289,13 +290,20 @@ async function executeWithPagination(
 
   const results: unknown[] = [];
   const pagePayload = clonePayload(payload);
+  let pageCount = 0;
 
   while (true) {
     const result = await executeTool(client, tool, pagePayload, userAccessToken);
     results.push(result);
+    pageCount += 1;
 
     const { hasMore, nextPageToken } = getPageState(result);
-    if (!hasMore || !nextPageToken) {
+    if (!hasMore || !nextPageToken || pageCount >= MAX_PAGINATION_PAGES) {
+      if (pageCount >= MAX_PAGINATION_PAGES) {
+        process.stderr.write(
+          `Warning: reached maximum page limit (${MAX_PAGINATION_PAGES}). Results may be incomplete.\n`,
+        );
+      }
       break;
     }
 
