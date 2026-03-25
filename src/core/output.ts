@@ -63,5 +63,13 @@ export function formatOutput(data: unknown, options: OutputOptions): string {
 }
 
 export function printOutput(data: unknown, options: OutputOptions): void {
-  process.stdout.write(`${formatOutput(data, options)}\n`);
+  process.stdout.write(`${formatOutput(data, options)}\n`, (error?: Error | null) => {
+    const ioError = error as NodeJS.ErrnoException | null | undefined;
+    if (ioError?.code === "EPIPE") {
+      process.exit(0);
+    }
+    if (error) {
+      throw error;
+    }
+  });
 }
