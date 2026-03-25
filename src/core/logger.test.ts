@@ -31,6 +31,23 @@ describe("debugLog", () => {
     expect(output).toContain('"key": "value"');
   });
 
+  it("redacts sensitive keys in payloads", () => {
+    debugLog(true, "info", {
+      app_secret: "secret-value",
+      nested: {
+        access_token: "token-value",
+      },
+      token_path: "/tmp/token.json",
+    });
+
+    const output = writeSpy.mock.calls[0][0] as string;
+    expect(output).toContain('"app_secret": "***"');
+    expect(output).toContain('"access_token": "***"');
+    expect(output).toContain('"token_path": "/tmp/token.json"');
+    expect(output).not.toContain("secret-value");
+    expect(output).not.toContain("token-value");
+  });
+
   it("handles non-serializable payloads gracefully", () => {
     const circular: Record<string, unknown> = {};
     circular.self = circular;

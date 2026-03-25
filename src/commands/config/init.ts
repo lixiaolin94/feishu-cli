@@ -1,7 +1,36 @@
 import { createInterface } from "node:readline/promises";
+import { Writable } from "node:stream";
 import { Command } from "commander";
 import { FileConfig, getDefaultConfigPath, resolveConfig, saveConfigFile } from "../../core/config";
 import { printOutput } from "../../core/output";
+
+class MuteableOutput extends Writable {
+  muted = false;
+
+  _write(chunk: string | Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    if (!this.muted) {
+      process.stderr.write(chunk, encoding);
+    }
+    callback();
+  }
+}
+
+async function questionHidden(
+  rl: ReturnType<typeof createInterface>,
+  output: MuteableOutput,
+  prompt: string,
+  fallback?: string,
+): Promise<string | undefined> {
+  process.stderr.write(prompt);
+  output.muted = true;
+  try {
+    const answer = (await rl.question("")).trim();
+    process.stderr.write("\n");
+    return answer || fallback;
+  } finally {
+    output.muted = false;
+  }
+}
 
 export function registerConfigInit(configCommand: Command): void {
   configCommand
@@ -20,9 +49,10 @@ export function registerConfigInit(configCommand: Command): void {
       };
 
       const config = await resolveConfig(globalOptions);
+      const output = new MuteableOutput();
       const rl = createInterface({
         input: process.stdin,
-        output: process.stderr,
+        output,
       });
 
       try {
@@ -39,9 +69,12 @@ export function registerConfigInit(configCommand: Command): void {
         const appId =
           (await rl.question(`app_id (from the Feishu app credentials)${existing.app_id ? ` [${existing.app_id}]` : ""}: `)).trim() ||
           existing.app_id;
-        const appSecret =
-          (await rl.question(`app_secret (keep this private)${existing.app_secret ? ` [${existing.app_secret}]` : ""}: `)).trim() ||
-          existing.app_secret;
+        const appSecret = await questionHidden(
+          rl,
+          output,
+          `app_secret (input hidden)${existing.app_secret ? " [stored]" : ""}: `,
+          existing.app_secret,
+        );
         const baseUrl =
           (await rl.question(`base_url (usually keep the default) [${existing.base_url ?? "https://open.feishu.cn"}]: `)).trim() ||
           existing.base_url ||
