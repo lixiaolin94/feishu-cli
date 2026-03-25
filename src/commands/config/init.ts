@@ -36,16 +36,18 @@ export function registerConfigInit(configCommand: Command): void {
               output: { format: config.output.format },
             } satisfies FileConfig);
 
-        const appId = (await rl.question(`app_id${existing.app_id ? ` [${existing.app_id}]` : ""}: `)).trim() || existing.app_id;
+        const appId =
+          (await rl.question(`app_id (from the Feishu app credentials)${existing.app_id ? ` [${existing.app_id}]` : ""}: `)).trim() ||
+          existing.app_id;
         const appSecret =
-          (await rl.question(`app_secret${existing.app_secret ? ` [${existing.app_secret}]` : ""}: `)).trim() ||
+          (await rl.question(`app_secret (keep this private)${existing.app_secret ? ` [${existing.app_secret}]` : ""}: `)).trim() ||
           existing.app_secret;
         const baseUrl =
-          (await rl.question(`base_url [${existing.base_url ?? "https://open.feishu.cn"}]: `)).trim() ||
+          (await rl.question(`base_url (usually keep the default) [${existing.base_url ?? "https://open.feishu.cn"}]: `)).trim() ||
           existing.base_url ||
           "https://open.feishu.cn";
         const format =
-          (await rl.question(`output.format [${existing.output?.format ?? "json"}]: `)).trim() ||
+          (await rl.question(`output.format (json | table | yaml) [${existing.output?.format ?? "json"}]: `)).trim() ||
           existing.output?.format ||
           "json";
         const debugInput = (await rl.question(`debug [${existing.debug ? "true" : "false"}]: `)).trim();

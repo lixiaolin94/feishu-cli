@@ -219,7 +219,8 @@ async function loginLocal(authUrl: string, state: string, port: number): Promise
       try {
         await openBrowser(authUrl);
       } catch {
-        process.stderr.write(`Open this URL manually:\n${authUrl}\n`);
+        process.stderr.write(`Could not open a browser automatically. Open this URL manually:\n${authUrl}\n`);
+        process.stderr.write("If automatic browser launch is unreliable in this environment, re-run with `feishu-cli auth login --manual`.\n");
       }
     });
 

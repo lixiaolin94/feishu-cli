@@ -8,5 +8,6 @@ async function main(): Promise<void> {
 
 main().catch((error) => {
   process.stderr.write(`${(error as Error).message}\n`);
+  process.stderr.write("Run with --debug for details.\n");
   process.exitCode = 1;
 });

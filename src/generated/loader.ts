@@ -185,12 +185,13 @@ function ensureSubcommand(
   key: string,
   segment: string,
   description: string,
+  hidden = false,
 ): Command {
   const existing = cache.get(key);
   if (existing) {
     return existing;
   }
-  const created = parent.command(segment).description(description);
+  const created = parent.command(segment, hidden ? { hidden: true } : undefined).description(description);
   cache.set(key, created);
   return created;
 }
@@ -367,7 +368,7 @@ export function registerGeneratedCommands(program: Command): void {
     const projectKey = projectSegment;
     const projectDescription =
       usesReservedNamespace ? `${parts.project} APIs (generated namespace)` : `${parts.project} APIs`;
-    const projectCommand = ensureSubcommand(program, cache, projectKey, projectSegment, projectDescription);
+    const projectCommand = ensureSubcommand(program, cache, projectKey, projectSegment, projectDescription, true);
 
     const resourceSegments =
       parts.middleSegments.length === 1

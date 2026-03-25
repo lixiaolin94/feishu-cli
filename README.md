@@ -35,17 +35,31 @@ export FEISHU_APP_SECRET=xxx
 
 ```bash
 feishu-cli auth login
+feishu-cli auth status
 ```
 
 4. Make your first call:
 
 ```bash
+feishu-cli api search chat
+feishu-cli api info im.v1.chat.list
 feishu-cli im chat list --page-size 5
 feishu-cli --token-mode user search message create --query test
 feishu-cli drive file list --page-size 50 --all
 ```
 
 ## Command Overview
+
+Find commands before you memorize them:
+
+- `feishu-cli api list`
+  List every namespace and how many APIs it contains.
+- `feishu-cli api list im`
+  List every API inside a namespace.
+- `feishu-cli api search chat`
+  Search by keyword across names, descriptions, paths, and SDK methods.
+- `feishu-cli api info im.v1.chat.list`
+  Inspect one API, including token type, HTTP path, SDK method, and parameters.
 
 Generated API commands are created from official tool definitions:
 
@@ -79,6 +93,12 @@ Supported environment variables:
 - `FEISHU_TOKEN_MODE`
 - `FEISHU_OUTPUT_FORMAT`
 - `FEISHU_DEBUG`
+
+Useful global flags:
+
+- `--output json|table|yaml`
+- `--token-mode auto|user|tenant`
+- `--debug`
 
 Example `config.yaml`:
 
@@ -114,6 +134,18 @@ feishu-cli drive file list --page-size 50 --all
 feishu-cli --token-mode tenant msg send --to user@example.com --text hello
 ```
 
+Use `feishu-cli auth status` to check whether your stored user token is still valid before calling user-only APIs.
+
+## Pagination
+
+For generated APIs that accept `page_token`, the CLI adds `--all` automatically:
+
+```bash
+feishu-cli im chat list --page-size 100 --all
+```
+
+`--all` keeps following `page_token` until `has_more` is false. To avoid accidental infinite loops, the CLI stops after 100 pages and prints a warning to stderr.
+
 ## Document Workflows
 
 Import Markdown into Feishu Docs using the official Drive import flow:
@@ -133,6 +165,31 @@ Export raw document content:
 ```bash
 feishu-cli doc export Rnxxxxxxxxx
 ```
+
+## Output Formats
+
+By default, output is JSON. You can switch per command:
+
+```bash
+feishu-cli api list --output table
+feishu-cli auth status --output yaml
+```
+
+Or set it globally in config:
+
+```yaml
+output:
+  format: table
+```
+
+## Troubleshooting
+
+- Missing permission
+  If the API returns a scope error, open the permission link from the error message, enable the required scope in the Feishu developer console, and retry after reauthorization if the API is user-scoped.
+- User token expired
+  Run `feishu-cli auth status` first. If the stored token is invalid, run `feishu-cli auth login`.
+- Browser cannot be opened during login
+  Run `feishu-cli auth login --manual` and paste the callback URL back into the terminal.
 
 ## Development
 

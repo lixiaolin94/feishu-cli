@@ -8,12 +8,18 @@ import { registerAuthCallback } from "./commands/auth/callback";
 import { registerConfigInit } from "./commands/config/init";
 import { registerConfigShow } from "./commands/config/show";
 import { registerConfigSet } from "./commands/config/set";
+import { registerApiSearch } from "./commands/api/search";
+import { registerApiList } from "./commands/api/list";
+import { registerApiInfo } from "./commands/api/info";
 import { registerMsgSend } from "./commands/custom/msg-send";
 import { registerDocImport } from "./commands/custom/doc-import";
 import { registerDocExport } from "./commands/custom/doc-export";
+import { getAllTools, getProjectSummaries } from "./generated/registry";
 
 export function createProgram(): Command {
   const program = new Command();
+  const apiCount = getAllTools().length;
+  const namespaceCount = getProjectSummaries().length;
 
   program
     .name("feishu-cli")
@@ -38,9 +44,23 @@ export function createProgram(): Command {
   program.addHelpText(
     "after",
     `
+Core Commands:
+  auth        OAuth login helpers
+  config      Configuration helpers
+  doc         High-level document helpers
+  msg         High-level messaging helpers
+  api         Search and discover available APIs
+
+Generated API Commands:
+  ${namespaceCount} namespaces, ${apiCount} APIs.
+  Use \`feishu-cli api list\` to browse namespaces and \`feishu-cli api search <keyword>\` to find an API.
+  Run \`feishu-cli <namespace> --help\` for details, for example \`feishu-cli im --help\`.
+
 Examples:
   feishu-cli config init
   feishu-cli auth login --manual
+  feishu-cli api search chat
+  feishu-cli api info im.v1.chat.list
   feishu-cli im message create --receive-id-type email --receive-id user@example.com --msg-type text --content '{"text":"hello"}'
   feishu-cli im chat list --page-size 5
   feishu-cli --token-mode user docx builtin search --search-key "weekly"
@@ -58,6 +78,11 @@ Examples:
   registerConfigInit(configCommand);
   registerConfigShow(configCommand);
   registerConfigSet(configCommand);
+
+  const apiCommand = program.command("api").description("Search and discover available APIs");
+  registerApiSearch(apiCommand);
+  registerApiList(apiCommand);
+  registerApiInfo(apiCommand);
 
   const docCommand = program.command("doc").description("High-level document helpers");
   registerDocImport(docCommand);
