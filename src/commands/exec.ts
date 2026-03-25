@@ -63,6 +63,7 @@ export function registerExec(program: Command): void {
         userAccessToken,
         baseUrl: config.baseUrl,
         tokenMode: config.tokenMode,
+        maxRetries: config.maxRetries,
         debug: config.debug,
       });
 

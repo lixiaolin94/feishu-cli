@@ -94,6 +94,7 @@ Supported environment variables:
 - `FEISHU_USER_ACCESS_TOKEN`
 - `FEISHU_BASE_URL`
 - `FEISHU_TOKEN_MODE`
+- `FEISHU_MAX_RETRIES`
 - `FEISHU_OUTPUT_FORMAT`
 - `FEISHU_DEBUG`
 
@@ -101,6 +102,7 @@ Useful global flags:
 
 - `--output json|table|yaml`
 - `--token-mode auto|user|tenant`
+- `--max-retries <number>`
 - `--debug`
 
 Example `config.yaml`:
@@ -109,6 +111,7 @@ Example `config.yaml`:
 app_id: cli_xxx
 app_secret: xxx
 token_mode: auto
+max_retries: 2
 output:
   format: json
 profiles:

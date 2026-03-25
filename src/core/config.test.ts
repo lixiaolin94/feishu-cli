@@ -10,6 +10,7 @@ const ENV_KEYS = [
   "FEISHU_USER_ACCESS_TOKEN",
   "FEISHU_BASE_URL",
   "FEISHU_TOKEN_MODE",
+  "FEISHU_MAX_RETRIES",
   "FEISHU_OUTPUT_FORMAT",
   "FEISHU_OUTPUT",
   "FEISHU_DEBUG",
@@ -54,6 +55,7 @@ describe("resolveConfig", () => {
         "app_id: file-app",
         "app_secret: file-secret",
         "token_mode: tenant",
+        "max_retries: 1",
         "output:",
         "  format: yaml",
         "profiles:",
@@ -65,12 +67,14 @@ describe("resolveConfig", () => {
 
     vi.stubEnv("FEISHU_APP_ID", "env-app");
     vi.stubEnv("FEISHU_TOKEN_MODE", "user");
+    vi.stubEnv("FEISHU_MAX_RETRIES", "2");
     vi.stubEnv("FEISHU_OUTPUT_FORMAT", "table");
 
     const config = await resolveConfig({
       config: configPath,
       profile: "work",
       baseUrl: "https://cli.invalid",
+      maxRetries: 3,
       output: "json",
     });
 
@@ -78,6 +82,7 @@ describe("resolveConfig", () => {
     expect(config.appSecret).toBe("file-secret");
     expect(config.baseUrl).toBe("https://cli.invalid");
     expect(config.tokenMode).toBe("user");
+    expect(config.maxRetries).toBe(3);
     expect(config.output.format).toBe("json");
   });
 });

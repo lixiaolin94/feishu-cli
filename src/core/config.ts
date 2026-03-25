@@ -16,6 +16,7 @@ export interface FileConfig {
   user_access_token?: string;
   base_url?: string;
   token_mode?: TokenMode;
+  max_retries?: number;
   debug?: boolean;
   output?: FileOutputConfig;
   profiles?: Record<string, Omit<FileConfig, "profiles">>;
@@ -28,6 +29,7 @@ export interface GlobalCliOptions {
   userToken?: string;
   baseUrl?: string;
   tokenMode?: TokenMode;
+  maxRetries?: number;
   debug?: boolean;
   compact?: boolean;
   color?: boolean;
@@ -51,6 +53,7 @@ export interface ResolvedConfig {
   userAccessToken?: string;
   baseUrl: string;
   tokenMode: TokenMode;
+  maxRetries: number;
   debug: boolean;
   output: {
     format: OutputFormat;
@@ -105,6 +108,14 @@ function parseTokenMode(value: string | undefined): TokenMode | undefined {
   return undefined;
 }
 
+function parseNumber(value: string | undefined): number | undefined {
+  if (value === undefined || value === "") {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function deepMerge<T extends Record<string, unknown>>(base: T, override: Record<string, unknown>): T {
   const result = { ...base } as Record<string, unknown>;
 
@@ -135,6 +146,7 @@ function toInternalConfig(config: FileConfig): {
   userAccessToken?: string;
   baseUrl?: string;
   tokenMode?: TokenMode;
+  maxRetries?: number;
   debug?: boolean;
   output?: { format?: OutputFormat };
 } {
@@ -144,6 +156,7 @@ function toInternalConfig(config: FileConfig): {
     userAccessToken: config.user_access_token,
     baseUrl: config.base_url,
     tokenMode: config.token_mode,
+    maxRetries: config.max_retries,
     debug: config.debug,
     output: {
       format: config.output?.format,
@@ -158,6 +171,7 @@ function toFileConfig(config: Partial<ResolvedConfig>): FileConfig {
     user_access_token: config.userAccessToken,
     base_url: config.baseUrl,
     token_mode: config.tokenMode,
+    max_retries: config.maxRetries,
     debug: config.debug,
     output: {
       format: config.output?.format,
@@ -214,6 +228,7 @@ export async function resolveConfig(options: GlobalCliOptions = {}): Promise<Res
     userAccessToken: process.env.FEISHU_USER_ACCESS_TOKEN,
     baseUrl: process.env.FEISHU_BASE_URL,
     tokenMode: parseTokenMode(process.env.FEISHU_TOKEN_MODE),
+    maxRetries: parseNumber(process.env.FEISHU_MAX_RETRIES),
     debug: parseBoolean(process.env.FEISHU_DEBUG),
     output: {
       format: parseOutputFormat(process.env.FEISHU_OUTPUT_FORMAT ?? process.env.FEISHU_OUTPUT),
@@ -224,6 +239,7 @@ export async function resolveConfig(options: GlobalCliOptions = {}): Promise<Res
     userAccessToken: options.userToken,
     baseUrl: options.baseUrl,
     tokenMode: options.tokenMode,
+    maxRetries: options.maxRetries,
     debug: options.debug,
     output: {
       format: options.output,
@@ -237,6 +253,7 @@ export async function resolveConfig(options: GlobalCliOptions = {}): Promise<Res
       userAccessToken: undefined,
       baseUrl: DEFAULT_BASE_URL,
       tokenMode: "auto",
+      maxRetries: 0,
       debug: false,
       output: {
         format: DEFAULT_OUTPUT_FORMAT,
@@ -251,6 +268,7 @@ export async function resolveConfig(options: GlobalCliOptions = {}): Promise<Res
     userAccessToken: resolved.userAccessToken as string | undefined,
     baseUrl: (resolved.baseUrl as string | undefined) || DEFAULT_BASE_URL,
     tokenMode: (resolved.tokenMode as TokenMode | undefined) || "auto",
+    maxRetries: Math.max(0, Number(resolved.maxRetries ?? 0)),
     debug: Boolean(resolved.debug),
     output: {
       format: ((resolved.output as { format?: OutputFormat } | undefined)?.format || DEFAULT_OUTPUT_FORMAT) as OutputFormat,

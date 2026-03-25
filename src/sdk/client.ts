@@ -4,6 +4,7 @@ import { DEFAULT_BASE_URL, type TokenMode } from "../core/config";
 import { mapError } from "../core/errors";
 import { executeTool } from "../core/executor";
 import { executeWithPagination, getPaginationSpec } from "../core/pagination";
+import { executeWithRetry } from "../core/retry";
 import type { JsonSchema } from "../core/schema";
 import { toolParamsToJsonSchema } from "../core/schema";
 import { findToolByName, getAllTools, getCliCommand, getToolsByProject, searchTools as searchRegistryTools } from "../generated/registry";
@@ -51,6 +52,7 @@ export class FeishuClient {
   private readonly userAccessToken?: string;
   private readonly baseUrl: string;
   private readonly tokenMode: TokenMode;
+  private readonly maxRetries: number;
   private readonly debug: boolean;
 
   constructor(options: FeishuClientOptions) {
@@ -59,6 +61,7 @@ export class FeishuClient {
     this.userAccessToken = options.userAccessToken;
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
     this.tokenMode = options.tokenMode ?? "auto";
+    this.maxRetries = Math.max(0, options.maxRetries ?? 0);
     this.debug = Boolean(options.debug);
   }
 
@@ -139,6 +142,7 @@ export class FeishuClient {
       debugLog(this.debug, `sdk execute ${tool.name}`, {
         all,
         useUAT,
+        maxRetries: this.maxRetries,
         payload,
       });
 
@@ -148,6 +152,7 @@ export class FeishuClient {
         userAccessToken: this.userAccessToken,
         baseUrl: this.baseUrl,
         tokenMode: this.tokenMode,
+        maxRetries: this.maxRetries,
         debug: this.debug,
         output: { format: "json" },
         profile: undefined,
@@ -160,13 +165,23 @@ export class FeishuClient {
 
       const pagination = getPaginationSpec(tool);
       if (!all || !pagination) {
-        return { ok: true, data: await executeTool(client, tool, payload, this.userAccessToken) };
+        return {
+          ok: true,
+          data: await executeWithRetry(
+            () => executeTool(client, tool, payload, this.userAccessToken),
+            { maxRetries: this.maxRetries, debug: this.debug },
+          ),
+        };
       }
 
       return {
         ok: true,
         data: await executeWithPagination(
-          (pagePayload) => executeTool(client, tool, pagePayload, this.userAccessToken),
+          (pagePayload) =>
+            executeWithRetry(
+              () => executeTool(client, tool, pagePayload, this.userAccessToken),
+              { maxRetries: this.maxRetries, debug: this.debug },
+            ),
           payload,
           pagination,
         ),

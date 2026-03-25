@@ -5,6 +5,7 @@ import { GlobalCliOptions, ResolvedConfig, TokenMode, getShouldUseUAT, resolveCo
 import { executeTool } from "../core/executor";
 import { printOutput } from "../core/output";
 import { executeWithPagination, getPaginationSpec, mergePaginatedResults } from "../core/pagination";
+import { executeWithRetry } from "../core/retry";
 import { getShape, unwrapSchema } from "../core/schema";
 import { toKebab, toOptionName, parseJsonValue } from "../core/utils";
 import { resolveUserAccessToken } from "../core/auth/resolve";
@@ -262,7 +263,11 @@ export function registerGeneratedCommands(program: Command): void {
       const result =
         Boolean(localOptions.all) && pagination
           ? await executeWithPagination(
-              (pagePayload) => executeTool(client, tool, pagePayload, userAccessToken),
+              (pagePayload) =>
+                executeWithRetry(
+                  () => executeTool(client, tool, pagePayload, userAccessToken),
+                  { maxRetries: config.maxRetries, debug: config.debug },
+                ),
               payload,
               pagination,
               MAX_PAGINATION_PAGES,
@@ -270,7 +275,10 @@ export function registerGeneratedCommands(program: Command): void {
                 process.stderr.write(`Warning: reached maximum page limit (${maxPages}). Results may be incomplete.\n`);
               },
             )
-          : await executeTool(client, tool, payload, userAccessToken);
+          : await executeWithRetry(
+              () => executeTool(client, tool, payload, userAccessToken),
+              { maxRetries: config.maxRetries, debug: config.debug },
+            );
       printOutput(result, {
         format: config.output.format,
         compact: config.compact,

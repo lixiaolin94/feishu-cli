@@ -7,6 +7,7 @@ export interface FeishuClientOptions {
   userAccessToken?: string;
   baseUrl?: string;
   tokenMode?: "auto" | "user" | "tenant";
+  maxRetries?: number;
   debug?: boolean;
 }
 

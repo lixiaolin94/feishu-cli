@@ -33,6 +33,7 @@ export function createProgram(): Command {
     .option("--output <format>", "Output format: json | table | yaml")
     .option("--user-token <token>", "Explicit user access token")
     .option("--base-url <url>", "API base URL")
+    .option("--max-retries <number>", "Retry rate-limited requests up to N times", (value) => Number(value))
     .option("--debug", "Enable debug mode")
     .option("--compact", "Compact JSON output")
     .option("--no-color", "Disable color output");
