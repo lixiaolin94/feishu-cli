@@ -130,7 +130,6 @@ export function registerCompletion(program: Command): void {
     });
 
   completionCommand.allowUnknownOption(true);
-  completionCommand.allowExcessArguments(false);
 }
 
 function detectShell(): Shell | undefined {
