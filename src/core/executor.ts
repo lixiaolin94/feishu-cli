@@ -1,5 +1,6 @@
 import * as lark from "@larksuiteoapi/node-sdk";
 import { ToolDef } from "../tools";
+import { FeishuCliError, mapError } from "./errors";
 
 interface ApiErrorPayload {
   code?: number;
@@ -9,9 +10,6 @@ interface ApiErrorPayload {
   error?: unknown;
   permission_violations?: unknown;
 }
-
-const TOKEN_REAUTH_CODES = new Set([99991663, 99991664, 99991668, 99991679]);
-const RATE_LIMIT_CODE = 99991400;
 
 function extractApiErrorPayload(error: unknown): ApiErrorPayload | undefined {
   if (!error || typeof error !== "object") {
@@ -31,25 +29,10 @@ function extractApiErrorPayload(error: unknown): ApiErrorPayload | undefined {
   return candidate.response?.data ?? candidate;
 }
 
-export function formatApiErrorMessage(payload: ApiErrorPayload): string {
-  const code = payload.code ?? "unknown";
-  const message = payload.msg ?? "Unknown API error";
-  const logId = payload.log_id ?? payload.logId;
-  const suffix = logId ? ` (log_id: ${logId})` : "";
-
-  if (typeof payload.code === "number" && TOKEN_REAUTH_CODES.has(payload.code)) {
-    return `Token invalid or unauthorized (code: ${payload.code}): ${message}${suffix}. Run \`feishu-cli auth login\` to re-authorize.`;
-  }
-  if (payload.code === RATE_LIMIT_CODE) {
-    return `Rate limited (code: ${payload.code}): ${message}${suffix}. Retry later.`;
-  }
-  return `API error (code: ${code}): ${message}${suffix}`;
-}
-
 export function assertSuccessfulResult(result: unknown): unknown {
   const payload = extractApiErrorPayload(result);
   if (payload?.code && payload.code !== 0) {
-    throw new Error(formatApiErrorMessage(payload));
+    throw new FeishuCliError(mapError(payload));
   }
   return result;
 }
@@ -107,7 +90,9 @@ export async function executeTool(
 
     if (params["useUAT"]) {
       if (!userAccessToken) {
-        throw new Error("This command requires a user access token. Run `feishu-cli auth login` or pass --user-token.");
+        throw new FeishuCliError(
+          mapError("This command requires a user access token. Run `feishu-cli auth login` or pass --user-token."),
+        );
       }
       return assertSuccessfulResult(
         await (func as (payload: unknown, options: unknown) => Promise<unknown>)(
@@ -121,7 +106,7 @@ export async function executeTool(
   } catch (error) {
     const payload = extractApiErrorPayload(error);
     if (payload?.code && payload.code !== 0) {
-      throw new Error(formatApiErrorMessage(payload));
+      throw new FeishuCliError(mapError(payload));
     }
     throw error;
   }

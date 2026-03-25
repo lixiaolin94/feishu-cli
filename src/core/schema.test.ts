@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { toolParametersToJsonSchema, zodToJsonSchema } from "./schema";
+import { toolParamsToJsonSchema, zodToJsonSchema } from "./schema";
 
 describe("zodToJsonSchema", () => {
   it("converts simple scalar and enum schemas", () => {
@@ -30,10 +30,10 @@ describe("zodToJsonSchema", () => {
   });
 });
 
-describe("toolParametersToJsonSchema", () => {
+describe("toolParamsToJsonSchema", () => {
   it("builds a bucketed parameter schema", () => {
     expect(
-      toolParametersToJsonSchema({
+      toolParamsToJsonSchema({
         project: "im",
         name: "im.v1.chat.list",
         description: "List chats",

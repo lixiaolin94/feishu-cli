@@ -3,6 +3,7 @@ import { FeishuClient } from "../sdk";
 import { GlobalCliOptions, resolveConfig } from "../core/config";
 import { printOutput } from "../core/output";
 import { resolveUserAccessToken } from "../core/auth/resolve";
+import { parseJsonValue } from "../core/utils";
 
 interface ExecRequest {
   tool?: string;
@@ -10,16 +11,12 @@ interface ExecRequest {
   all?: boolean;
 }
 
-function parseJsonValue(value: string): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(value);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new Error("JSON must be an object.");
-    }
-    return parsed as Record<string, unknown>;
-  } catch (error) {
-    throw new Error(`Invalid JSON: ${(error as Error).message}`);
+function parseObjectJsonValue(value: string): Record<string, unknown> {
+  const parsed = parseJsonValue(value);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("JSON must be an object.");
   }
+  return parsed as Record<string, unknown>;
 }
 
 async function readStdin(): Promise<string> {
@@ -39,7 +36,7 @@ export function registerExec(program: Command): void {
     .command("exec")
     .description("Execute one API tool with structured JSON input/output")
     .argument("[tool-name]", "Full tool name such as im.v1.chat.list")
-    .addOption(new Option("--params <json>", "JSON payload with path/params/data buckets").argParser(parseJsonValue))
+    .addOption(new Option("--params <json>", "JSON payload with path/params/data buckets").argParser(parseObjectJsonValue))
     .addOption(new Option("--stdin", "Read a JSON object from stdin: { tool, params, all }"))
     .addOption(new Option("--all", "Automatically fetch all pages for paginated APIs"))
     .action(async (toolName: string | undefined, localOptions: { params?: Record<string, unknown>; stdin?: boolean; all?: boolean }, command: Command) => {
@@ -52,7 +49,7 @@ export function registerExec(program: Command): void {
               if (!trimmed) {
                 throw new Error("No JSON received on stdin.");
               }
-              return parseJsonValue(trimmed) as ExecRequest & Record<string, unknown>;
+              return parseObjectJsonValue(trimmed) as ExecRequest & Record<string, unknown>;
             }))
           : Promise.resolve<ExecRequest & Record<string, unknown>>({});
       const request = await stdinRequest;

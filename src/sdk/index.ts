@@ -1,3 +1,5 @@
 export { FeishuClient, describeToolParameters } from "./client";
-export { toolParametersToJsonSchema, zodToJsonSchema } from "./schema";
-export type { FeishuClientOptions, FeishuError, FeishuResult, JsonSchema, ToolInfo } from "./types";
+export { toolParamsToJsonSchema, zodToJsonSchema } from "../core/schema";
+export type { FeishuClientOptions, FeishuResult, ToolInfo } from "./types";
+export type { FeishuError } from "../core/errors";
+export type { JsonSchema } from "../core/schema";

@@ -1,7 +1,27 @@
 import { allTools, ToolDef } from "../tools";
+import { toKebab } from "../core/utils";
+
+const RESERVED_TOP_LEVEL_COMMANDS = new Set(["auth", "config", "msg"]);
 
 export function getAllTools(): ToolDef[] {
   return allTools;
+}
+
+export function parseToolName(toolName: string) {
+  const segments = toolName.split(".");
+  if (segments.length < 3) {
+    throw new Error(`Unsupported tool name: ${toolName}`);
+  }
+
+  const project = segments[0];
+  const action = segments.at(-1) as string;
+  const middleSegments = segments.slice(1, -1);
+  return {
+    project,
+    middleSegments,
+    resourceKey: middleSegments.length > 1 ? middleSegments.slice(1).join("/") : middleSegments[0],
+    action,
+  };
 }
 
 export function findToolByName(name: string): ToolDef | undefined {
@@ -24,6 +44,32 @@ export function searchTools(keyword: string): ToolDef[] {
       .map((value) => value.toLowerCase());
     return haystacks.some((value) => value.includes(normalized));
   });
+}
+
+export function getCollisionKeys(): Set<string> {
+  const seen = new Map<string, number>();
+  for (const tool of allTools) {
+    const parts = parseToolName(tool.name);
+    const key = `${parts.project}:${parts.resourceKey}:${parts.action}`;
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+  }
+  return new Set([...seen.entries()].filter(([, count]) => count > 1).map(([key]) => key));
+}
+
+export function getCliCommand(toolName: string): string {
+  const parts = parseToolName(toolName);
+  const collisions = getCollisionKeys();
+  const usesReservedNamespace = RESERVED_TOP_LEVEL_COMMANDS.has(parts.project);
+  const projectBaseName = usesReservedNamespace ? `${parts.project}-api` : parts.project;
+  const collisionKey = `${parts.project}:${parts.resourceKey}:${parts.action}`;
+  const resourceSegments =
+    parts.middleSegments.length === 1
+      ? parts.middleSegments
+      : collisions.has(collisionKey)
+        ? parts.middleSegments
+        : parts.middleSegments.slice(1);
+
+  return `feishu-cli ${[projectBaseName, ...resourceSegments, parts.action].map((segment) => toKebab(segment)).join(" ")}`;
 }
 
 export function getProjectSummaries(): Array<{ project: string; count: number }> {

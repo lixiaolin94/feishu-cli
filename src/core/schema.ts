@@ -1,8 +1,20 @@
 import { z } from "zod";
-import type { JsonSchema } from "./types";
 import type { ToolDef } from "../tools";
 
-function unwrapSchema(schema: z.ZodTypeAny): {
+export type JsonSchemaType = "string" | "number" | "integer" | "boolean" | "object" | "array" | "null";
+
+export interface JsonSchema {
+  type?: JsonSchemaType | JsonSchemaType[];
+  description?: string;
+  enum?: unknown[];
+  properties?: Record<string, JsonSchema>;
+  items?: JsonSchema;
+  required?: string[];
+  additionalProperties?: boolean;
+  oneOf?: JsonSchema[];
+}
+
+function unwrapSchemaMeta(schema: z.ZodTypeAny): {
   schema: z.ZodTypeAny;
   optional: boolean;
   nullable: boolean;
@@ -37,6 +49,19 @@ function unwrapSchema(schema: z.ZodTypeAny): {
   return { schema: current as z.ZodTypeAny, optional, nullable };
 }
 
+export function unwrapSchema(schema: z.ZodTypeAny): z.ZodTypeAny {
+  return unwrapSchemaMeta(schema).schema;
+}
+
+export function getShape(schema: z.ZodTypeAny | undefined): Record<string, z.ZodTypeAny> {
+  if (!schema) {
+    return {};
+  }
+
+  const unwrapped = unwrapSchema(schema);
+  return unwrapped instanceof z.ZodObject ? (unwrapped.shape as Record<string, z.ZodTypeAny>) : {};
+}
+
 function withNullable(schema: JsonSchema, nullable: boolean): JsonSchema {
   if (!nullable) {
     return schema;
@@ -58,7 +83,7 @@ export function zodToJsonSchema(input: z.ZodTypeAny | undefined): JsonSchema {
     return { type: "object", properties: {}, additionalProperties: false };
   }
 
-  const { schema, nullable } = unwrapSchema(input);
+  const { schema, nullable } = unwrapSchemaMeta(input);
   const description = input.description ?? schema.description;
   let result: JsonSchema;
 
@@ -84,7 +109,7 @@ export function zodToJsonSchema(input: z.ZodTypeAny | undefined): JsonSchema {
     const required: string[] = [];
 
     for (const [key, childSchema] of Object.entries(shape)) {
-      const child = unwrapSchema(childSchema);
+      const child = unwrapSchemaMeta(childSchema);
       properties[key] = zodToJsonSchema(childSchema);
       if (!child.optional) {
         required.push(key);
@@ -108,7 +133,7 @@ export function zodToJsonSchema(input: z.ZodTypeAny | undefined): JsonSchema {
   return withNullable(result, nullable);
 }
 
-export function toolParametersToJsonSchema(tool: ToolDef): JsonSchema {
+export function toolParamsToJsonSchema(tool: ToolDef): JsonSchema {
   const properties: Record<string, JsonSchema> = {};
   const required: string[] = [];
 

@@ -4,21 +4,16 @@ import { getClient } from "../core/client";
 import { GlobalCliOptions, ResolvedConfig, TokenMode, getShouldUseUAT, resolveConfig } from "../core/config";
 import { executeTool } from "../core/executor";
 import { printOutput } from "../core/output";
+import { executeWithPagination, getPaginationSpec, mergePaginatedResults } from "../core/pagination";
+import { getShape, unwrapSchema } from "../core/schema";
+import { toKebab, toOptionName, parseJsonValue } from "../core/utils";
 import { resolveUserAccessToken } from "../core/auth/resolve";
 import { ToolDef } from "../tools";
-import { getAllTools } from "./registry";
+import { getAllTools, getCollisionKeys, parseToolName } from "./registry";
 
 const PARAM_BUCKETS = ["path", "params", "data"] as const;
 const RESERVED_TOP_LEVEL_COMMANDS = new Set(["auth", "config", "msg"]);
 const MAX_PAGINATION_PAGES = 100;
-
-function toKebab(value: string): string {
-  return value.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/_/g, "-").toLowerCase();
-}
-
-function toOptionName(key: string): string {
-  return key.replace(/[-_]+([a-z0-9])/g, (_, char: string) => char.toUpperCase());
-}
 
 interface OptionBinding {
   bucket: (typeof PARAM_BUCKETS)[number];
@@ -27,39 +22,9 @@ interface OptionBinding {
 }
 
 type AccessTokenKind = "tenant" | "user";
-type PaginationBucket = (typeof PARAM_BUCKETS)[number];
-
-interface PaginationSpec {
-  bucket: PaginationBucket;
-  key: "page_token";
-}
 
 function isConfigInjectedKey(key: string): boolean {
   return key === "app_id" || key === "app_secret";
-}
-
-function unwrapSchema(schema: z.ZodTypeAny): z.ZodTypeAny {
-  let current: any = schema;
-  while (
-    current instanceof z.ZodOptional ||
-    current instanceof z.ZodNullable ||
-    current instanceof z.ZodDefault ||
-    current instanceof z.ZodReadonly
-  ) {
-    current =
-      current instanceof z.ZodDefault
-        ? current.removeDefault()
-        : current.unwrap();
-  }
-  return current as z.ZodTypeAny;
-}
-
-function getShape(schema: z.ZodTypeAny | undefined): Record<string, z.ZodTypeAny> {
-  if (!schema) {
-    return {};
-  }
-  const unwrapped = unwrapSchema(schema);
-  return unwrapped instanceof z.ZodObject ? (unwrapped.shape as Record<string, z.ZodTypeAny>) : {};
 }
 
 function parseBooleanValue(value: string): boolean {
@@ -71,14 +36,6 @@ function parseBooleanValue(value: string): boolean {
     return false;
   }
   throw new Error(`Invalid boolean value: ${value}`);
-}
-
-function parseJsonValue(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch (error) {
-    throw new Error(`Invalid JSON: ${(error as Error).message}`);
-  }
 }
 
 function createOption(key: string, schema: z.ZodTypeAny, originalKey?: string): Option {
@@ -152,33 +109,6 @@ export function resolveToolUseUAT(tool: ToolDef, tokenMode: TokenMode, requested
   return shouldUseUAT;
 }
 
-export function parseToolName(toolName: string) {
-  const segments = toolName.split(".");
-  if (segments.length < 3) {
-    throw new Error(`Unsupported tool name: ${toolName}`);
-  }
-
-  const project = segments[0];
-  const action = segments.at(-1) as string;
-  const middleSegments = segments.slice(1, -1);
-  return {
-    project,
-    middleSegments,
-    resourceKey: middleSegments.length > 1 ? middleSegments.slice(1).join("/") : middleSegments[0],
-    action,
-  };
-}
-
-function getCollisionKeys(): Set<string> {
-  const seen = new Map<string, number>();
-  for (const tool of getAllTools()) {
-    const parts = parseToolName(tool.name);
-    const key = `${parts.project}:${parts.resourceKey}:${parts.action}`;
-    seen.set(key, (seen.get(key) ?? 0) + 1);
-  }
-  return new Set([...seen.entries()].filter(([, count]) => count > 1).map(([key]) => key));
-}
-
 function ensureSubcommand(
   parent: Command,
   cache: Map<string, Command>,
@@ -204,119 +134,6 @@ function getInjectedConfigValue(key: string, config: ResolvedConfig): unknown {
     return config.appSecret;
   }
   return undefined;
-}
-
-function clonePayload<T>(payload: T): T {
-  return structuredClone(payload);
-}
-
-export function getPaginationSpec(tool: ToolDef): PaginationSpec | undefined {
-  for (const bucket of PARAM_BUCKETS) {
-    const shape = getShape(tool.schema[bucket]);
-    if (shape.page_token) {
-      return { bucket, key: "page_token" };
-    }
-  }
-  return undefined;
-}
-
-function getPageState(result: unknown): { hasMore: boolean; nextPageToken?: string } {
-  const response = result && typeof result === "object" ? (result as Record<string, unknown>) : {};
-  const data = response.data && typeof response.data === "object" ? (response.data as Record<string, unknown>) : response;
-  const hasMore = data.has_more;
-  const nextPageToken = data.page_token ?? data.next_page_token;
-
-  return {
-    hasMore: typeof hasMore === "boolean" ? hasMore : Boolean(nextPageToken),
-    nextPageToken: typeof nextPageToken === "string" && nextPageToken ? nextPageToken : undefined,
-  };
-}
-
-export function mergePaginatedResults(results: unknown[]): unknown {
-  if (results.length <= 1) {
-    return results[0];
-  }
-
-  const merged = clonePayload(results[0]);
-  if (!merged || typeof merged !== "object") {
-    return results.at(-1);
-  }
-
-  const pages = results.filter((result): result is Record<string, unknown> => Boolean(result) && typeof result === "object");
-  const mergedRecord = merged as Record<string, unknown>;
-  const mergedData =
-    mergedRecord.data && typeof mergedRecord.data === "object" ? (mergedRecord.data as Record<string, unknown>) : undefined;
-
-  if (mergedData) {
-    const pageData = pages
-      .map((result) => result.data)
-      .filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
-
-    const arrayKeys = [...new Set(pageData.flatMap((data) => Object.keys(data).filter((key) => Array.isArray(data[key]))))];
-    for (const key of arrayKeys) {
-      mergedData[key] = pageData.flatMap((data) => (Array.isArray(data[key]) ? (data[key] as unknown[]) : []));
-    }
-
-    if ("has_more" in mergedData) {
-      mergedData.has_more = false;
-    }
-    delete mergedData.page_token;
-    delete mergedData.next_page_token;
-    return merged;
-  }
-
-  const arrayKeys = [...new Set(pages.flatMap((page) => Object.keys(page).filter((key) => Array.isArray(page[key]))))];
-  for (const key of arrayKeys) {
-    mergedRecord[key] = pages.flatMap((page) => (Array.isArray(page[key]) ? (page[key] as unknown[]) : []));
-  }
-  if ("has_more" in mergedRecord) {
-    mergedRecord.has_more = false;
-  }
-  delete mergedRecord.page_token;
-  delete mergedRecord.next_page_token;
-  return merged;
-}
-
-async function executeWithPagination(
-  client: ReturnType<typeof getClient>,
-  tool: ToolDef,
-  payload: Record<string, unknown>,
-  userAccessToken: string | undefined,
-  all: boolean,
-): Promise<unknown> {
-  const pagination = getPaginationSpec(tool);
-  if (!all || !pagination) {
-    return executeTool(client, tool, payload, userAccessToken);
-  }
-
-  const results: unknown[] = [];
-  const pagePayload = clonePayload(payload);
-  let pageCount = 0;
-
-  while (true) {
-    const result = await executeTool(client, tool, pagePayload, userAccessToken);
-    results.push(result);
-    pageCount += 1;
-
-    const { hasMore, nextPageToken } = getPageState(result);
-    if (!hasMore || !nextPageToken || pageCount >= MAX_PAGINATION_PAGES) {
-      if (pageCount >= MAX_PAGINATION_PAGES) {
-        process.stderr.write(
-          `Warning: reached maximum page limit (${MAX_PAGINATION_PAGES}). Results may be incomplete.\n`,
-        );
-      }
-      break;
-    }
-
-    const bucketPayload =
-      pagePayload[pagination.bucket] && typeof pagePayload[pagination.bucket] === "object"
-        ? (pagePayload[pagination.bucket] as Record<string, unknown>)
-        : {};
-    bucketPayload[pagination.key] = nextPageToken;
-    pagePayload[pagination.bucket] = bucketPayload;
-  }
-
-  return mergePaginatedResults(results);
 }
 
 function buildParams(
@@ -441,7 +258,19 @@ export function registerGeneratedCommands(program: Command): void {
           })
         : undefined;
 
-      const result = await executeWithPagination(client, tool, payload, userAccessToken, Boolean(localOptions.all));
+      const pagination = getPaginationSpec(tool);
+      const result =
+        Boolean(localOptions.all) && pagination
+          ? await executeWithPagination(
+              (pagePayload) => executeTool(client, tool, pagePayload, userAccessToken),
+              payload,
+              pagination,
+              MAX_PAGINATION_PAGES,
+              (maxPages) => {
+                process.stderr.write(`Warning: reached maximum page limit (${maxPages}). Results may be incomplete.\n`);
+              },
+            )
+          : await executeTool(client, tool, payload, userAccessToken);
       printOutput(result, {
         format: config.output.format,
         compact: config.compact,
@@ -449,3 +278,6 @@ export function registerGeneratedCommands(program: Command): void {
     });
   }
 }
+
+export { parseToolName } from "./registry";
+export { getPaginationSpec, mergePaginatedResults } from "../core/pagination";

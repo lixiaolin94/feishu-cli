@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { assertSuccessfulResult, formatApiErrorMessage } from "./executor";
+import { assertSuccessfulResult } from "./executor";
+import { formatErrorForHuman, mapError } from "./errors";
 
-describe("formatApiErrorMessage", () => {
+describe("mapError", () => {
   it("formats token re-authorization errors", () => {
-    expect(formatApiErrorMessage({ code: 99991668, msg: "invalid token" })).toContain("Run `feishu-cli auth login`");
+    expect(formatErrorForHuman(mapError({ code: 99991668, msg: "invalid token" }))).toContain("Run `feishu-cli auth login`");
   });
 
   it("formats rate limit errors", () => {
-    expect(formatApiErrorMessage({ code: 99991400, msg: "too many requests" })).toContain("Retry later.");
+    expect(formatErrorForHuman(mapError({ code: 99991400, msg: "too many requests" }))).toContain("Retry later.");
   });
 });
 
