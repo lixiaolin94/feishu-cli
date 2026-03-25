@@ -16,6 +16,7 @@ import { registerExec } from "./commands/exec";
 import { registerMsgSend } from "./commands/custom/msg-send";
 import { registerDocImport } from "./commands/custom/doc-import";
 import { registerDocExport } from "./commands/custom/doc-export";
+import { registerCompletion } from "./commands/completion";
 import { getAllTools, getProjectSummaries } from "./generated/registry";
 
 export function createProgram(): Command {
@@ -54,6 +55,7 @@ Core Commands:
   doc         High-level document helpers
   msg         High-level messaging helpers
   api         Search and discover available APIs
+  completion  Generate shell completion scripts
 
 Generated API Commands:
   ${namespaceCount} namespaces, ${apiCount} APIs.
@@ -98,6 +100,7 @@ Examples:
   registerDocExport(docCommand);
 
   registerMsgSend(program);
+  registerCompletion(program);
   registerGeneratedCommands(program);
 
   return program;
