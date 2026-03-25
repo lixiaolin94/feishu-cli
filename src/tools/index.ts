@@ -1,4 +1,5 @@
 import { GenTools } from "../../ref/lark-openapi-mcp-main/src/mcp-tool/tools/en/gen-tools";
+import { BuiltinTools } from "../../ref/lark-openapi-mcp-main/src/mcp-tool/tools/en/builtin-tools";
 import { z } from "zod";
 
 export interface ToolSchema {
@@ -17,6 +18,9 @@ export interface ToolDef {
   path?: string;
   httpMethod?: string;
   accessTokens?: string[];
+  supportFileUpload?: boolean;
+  supportFileDownload?: boolean;
+  customHandler?: (client: unknown, params: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
 }
 
-export const allTools = GenTools as ToolDef[];
+export const allTools = [...GenTools, ...BuiltinTools] as ToolDef[];

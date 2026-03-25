@@ -1,10 +1,34 @@
 import { Command } from "commander";
 import { getClient } from "../../core/client";
-import { resolveConfig } from "../../core/config";
+import { TokenMode, resolveConfig } from "../../core/config";
 import { executeTool } from "../../core/executor";
 import { printOutput } from "../../core/output";
 import { resolveUserAccessToken } from "../../core/auth/resolve";
 import { findToolByName } from "../../generated/registry";
+
+interface GlobalOptions {
+  config?: string;
+  profile?: string;
+  output?: "json" | "table" | "yaml";
+  userToken?: string;
+  baseUrl?: string;
+  tokenMode?: TokenMode;
+  debug?: boolean;
+  compact?: boolean;
+  color?: boolean;
+}
+
+function getShouldUseUAT(tokenMode: TokenMode, useUAT?: boolean): boolean {
+  switch (tokenMode) {
+    case "user":
+      return true;
+    case "tenant":
+      return false;
+    case "auto":
+    default:
+      return Boolean(useUAT);
+  }
+}
 
 export function registerMsgSend(program: Command): void {
   program
@@ -17,16 +41,7 @@ export function registerMsgSend(program: Command): void {
     .option("--receive-id-type <type>", "Receive ID type", "email")
     .option("--use-uat", "Force user access token")
     .action(async (localOptions, command: Command) => {
-      const globalOptions = command.optsWithGlobals() as {
-        config?: string;
-        profile?: string;
-        output?: "json" | "table" | "yaml";
-        userToken?: string;
-        baseUrl?: string;
-        debug?: boolean;
-        compact?: boolean;
-        color?: boolean;
-      };
+      const globalOptions = command.optsWithGlobals() as GlobalOptions;
 
       const config = await resolveConfig(globalOptions);
       const client = getClient(config);
@@ -35,13 +50,16 @@ export function registerMsgSend(program: Command): void {
         throw new Error("Could not find im.v1.message.create tool definition.");
       }
 
-      const userAccessToken = await resolveUserAccessToken({
-        explicitToken: globalOptions.userToken,
-        configToken: config.userAccessToken,
-        appId: config.appId,
-        appSecret: config.appSecret,
-        baseUrl: config.baseUrl,
-      });
+      const useUAT = getShouldUseUAT(config.tokenMode, localOptions.useUat);
+      const userAccessToken = useUAT
+        ? await resolveUserAccessToken({
+            explicitToken: globalOptions.userToken,
+            configToken: config.userAccessToken,
+            appId: config.appId,
+            appSecret: config.appSecret,
+            baseUrl: config.baseUrl,
+          })
+        : undefined;
 
       const result = await executeTool(
         client,
@@ -55,7 +73,7 @@ export function registerMsgSend(program: Command): void {
             msg_type: "text",
             content: JSON.stringify({ text: localOptions.text }),
           },
-          useUAT: Boolean(localOptions.useUat),
+          useUAT: useUAT,
         },
         userAccessToken,
       );

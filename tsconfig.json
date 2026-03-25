@@ -12,5 +12,5 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "tsup.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "tsup.config.ts"]
 }

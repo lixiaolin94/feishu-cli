@@ -1,7 +1,7 @@
 import { Command, Option } from "commander";
 import { z } from "zod";
 import { getClient } from "../core/client";
-import { ResolvedConfig, resolveConfig } from "../core/config";
+import { ResolvedConfig, TokenMode, resolveConfig } from "../core/config";
 import { executeTool } from "../core/executor";
 import { printOutput } from "../core/output";
 import { resolveUserAccessToken } from "../core/auth/resolve";
@@ -24,6 +24,8 @@ interface OptionBinding {
   key: string;
   optionName: string;
 }
+
+type AccessTokenKind = "tenant" | "user";
 
 function isConfigInjectedKey(key: string): boolean {
   return key === "app_id" || key === "app_secret";
@@ -106,12 +108,68 @@ function stripDescription(description: string): string {
   return description.replace(/^\[Feishu\/Lark\]-/i, "").trim();
 }
 
+function getAccessTokens(tool: ToolDef): Set<AccessTokenKind> {
+  return new Set((tool.accessTokens ?? []).filter((token): token is AccessTokenKind => token === "tenant" || token === "user"));
+}
+
+function supportsUserToken(tool: ToolDef): boolean {
+  return getAccessTokens(tool).has("user");
+}
+
+function supportsTenantToken(tool: ToolDef): boolean {
+  const accessTokens = getAccessTokens(tool);
+  return accessTokens.size === 0 || accessTokens.has("tenant");
+}
+
+function requiresUserToken(tool: ToolDef): boolean {
+  return supportsUserToken(tool) && !supportsTenantToken(tool);
+}
+
+function getShouldUseUAT(tokenMode: TokenMode, useUAT?: boolean): boolean | undefined {
+  switch (tokenMode) {
+    case "user":
+      return true;
+    case "tenant":
+      return false;
+    case "auto":
+    default:
+      return useUAT;
+  }
+}
+
+function resolveToolUseUAT(tool: ToolDef, tokenMode: TokenMode, requestedUseUAT?: boolean): boolean | undefined {
+  if (requiresUserToken(tool)) {
+    if (tokenMode === "tenant") {
+      throw new Error(
+        `Tool ${tool.name} only supports user access token, but token mode is set to tenant. Use \`--token-mode user\` or remove the tenant override.`,
+      );
+    }
+    return true;
+  }
+
+  const shouldUseUAT = getShouldUseUAT(tokenMode, requestedUseUAT);
+  if (shouldUseUAT && !supportsUserToken(tool)) {
+    throw new Error(`Tool ${tool.name} does not support user access token. Use tenant mode or remove --use-uat.`);
+  }
+  if (shouldUseUAT === false && !supportsTenantToken(tool)) {
+    throw new Error(`Tool ${tool.name} requires user access token. Re-run with --use-uat or --token-mode user.`);
+  }
+  return shouldUseUAT;
+}
+
 function parseToolName(toolName: string) {
-  const [project, version, resource, action] = toolName.split(".");
+  const segments = toolName.split(".");
+  if (segments.length < 3) {
+    throw new Error(`Unsupported tool name: ${toolName}`);
+  }
+
+  const project = segments[0];
+  const action = segments.at(-1) as string;
+  const middleSegments = segments.slice(1, -1);
   return {
     project,
-    version,
-    resource,
+    middleSegments,
+    resourceKey: middleSegments.length > 1 ? middleSegments.slice(1).join("/") : middleSegments[0],
     action,
   };
 }
@@ -120,7 +178,7 @@ function getCollisionKeys(): Set<string> {
   const seen = new Map<string, number>();
   for (const tool of getAllTools()) {
     const parts = parseToolName(tool.name);
-    const key = `${parts.project}:${toKebab(parts.resource)}:${parts.action}`;
+    const key = `${parts.project}:${parts.resourceKey}:${parts.action}`;
     seen.set(key, (seen.get(key) ?? 0) + 1);
   }
   return new Set([...seen.entries()].filter(([, count]) => count > 1).map(([key]) => key));
@@ -157,6 +215,7 @@ function buildParams(
   command: Command,
   bindings: OptionBinding[],
   config: ResolvedConfig,
+  useUAT?: boolean,
 ): Record<string, unknown> {
   const options = command.opts();
   const payload: Record<string, unknown> = {};
@@ -180,11 +239,8 @@ function buildParams(
     }
   }
 
-  if (tool.schema.useUAT) {
-    const useUAT = options.useUat;
-    if (useUAT !== undefined) {
-      payload.useUAT = useUAT;
-    }
+  if (useUAT !== undefined) {
+    payload.useUAT = useUAT;
   }
 
   return payload;
@@ -199,15 +255,18 @@ export function registerGeneratedCommands(program: Command): void {
     const usesReservedNamespace = RESERVED_TOP_LEVEL_COMMANDS.has(parts.project);
     const projectBaseName = usesReservedNamespace ? `${parts.project}-api` : parts.project;
     const projectSegment = toKebab(projectBaseName);
-    const collisionKey = `${parts.project}:${toKebab(parts.resource)}:${parts.action}`;
+    const collisionKey = `${parts.project}:${parts.resourceKey}:${parts.action}`;
     const projectKey = projectSegment;
     const projectDescription =
       usesReservedNamespace ? `${parts.project} APIs (generated namespace)` : `${parts.project} APIs`;
     const projectCommand = ensureSubcommand(program, cache, projectKey, projectSegment, projectDescription);
 
-    const resourceSegments = collisions.has(collisionKey)
-      ? [parts.version, toKebab(parts.resource)]
-      : [toKebab(parts.resource)];
+    const resourceSegments =
+      parts.middleSegments.length === 1
+        ? parts.middleSegments.map((segment) => toKebab(segment))
+        : collisions.has(collisionKey)
+          ? parts.middleSegments.map((segment) => toKebab(segment))
+          : parts.middleSegments.slice(1).map((segment) => toKebab(segment));
 
     let parent = projectCommand;
     let parentKey = projectKey;
@@ -241,10 +300,14 @@ export function registerGeneratedCommands(program: Command): void {
       }
     }
 
-    if (tool.schema.useUAT) {
-      actionCommand.addOption(
-        new Option("--use-uat <boolean>", "Use user access token for this API call").argParser(parseBooleanValue),
+    if (supportsUserToken(tool)) {
+      const useUatOption = new Option("--use-uat <boolean>", "Use user access token for this API call").argParser(
+        parseBooleanValue,
       );
+      if (requiresUserToken(tool)) {
+        useUatOption.default(true);
+      }
+      actionCommand.addOption(useUatOption);
     }
 
     actionCommand.action(async (_localOptions, command: Command) => {
@@ -254,6 +317,7 @@ export function registerGeneratedCommands(program: Command): void {
         output?: "json" | "table" | "yaml";
         userToken?: string;
         baseUrl?: string;
+        tokenMode?: TokenMode;
         debug?: boolean;
         compact?: boolean;
         color?: boolean;
@@ -261,14 +325,18 @@ export function registerGeneratedCommands(program: Command): void {
 
       const config = await resolveConfig(globalOptions);
       const client = getClient(config);
-      const payload = buildParams(tool, command, optionBindings, config);
-      const userAccessToken = await resolveUserAccessToken({
-        explicitToken: globalOptions.userToken,
-        configToken: config.userAccessToken,
-        appId: config.appId,
-        appSecret: config.appSecret,
-        baseUrl: config.baseUrl,
-      });
+      const requestedUseUAT = (command.opts() as { useUat?: boolean }).useUat;
+      const shouldUseUAT = resolveToolUseUAT(tool, config.tokenMode, requestedUseUAT);
+      const payload = buildParams(tool, command, optionBindings, config, shouldUseUAT);
+      const userAccessToken = shouldUseUAT
+        ? await resolveUserAccessToken({
+            explicitToken: globalOptions.userToken,
+            configToken: config.userAccessToken,
+            appId: config.appId,
+            appSecret: config.appSecret,
+            baseUrl: config.baseUrl,
+          })
+        : undefined;
 
       const result = await executeTool(client, tool, payload, userAccessToken);
       printOutput(result, {

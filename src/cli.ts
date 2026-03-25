@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import packageJson from "../package.json";
 import { registerGeneratedCommands } from "./generated/loader";
 import { registerAuthLogin } from "./commands/auth/login";
@@ -29,6 +29,12 @@ export function createProgram(): Command {
     .option("--compact", "Compact JSON output")
     .option("--no-color", "Disable color output");
 
+  program.addOption(
+    new Option("--token-mode <mode>", "Token routing mode: auto | user | tenant")
+      .choices(["auto", "user", "tenant"])
+      .default("auto"),
+  );
+
   program.addHelpText(
     "after",
     `
@@ -37,6 +43,7 @@ Examples:
   feishu-cli auth login --manual
   feishu-cli im message create --receive-id-type email --receive-id user@example.com --msg-type text --content '{"text":"hello"}'
   feishu-cli im chat list --page-size 5
+  feishu-cli --token-mode user docx builtin search --search-key "weekly"
   feishu-cli msg send --to user@example.com --text "Hello"
 `,
   );

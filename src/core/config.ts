@@ -4,6 +4,7 @@ import path from "node:path";
 import YAML from "yaml";
 
 export type OutputFormat = "json" | "table" | "yaml";
+export type TokenMode = "auto" | "user" | "tenant";
 
 interface FileOutputConfig {
   format?: OutputFormat;
@@ -14,6 +15,7 @@ export interface FileConfig {
   app_secret?: string;
   user_access_token?: string;
   base_url?: string;
+  token_mode?: TokenMode;
   debug?: boolean;
   output?: FileOutputConfig;
   profiles?: Record<string, Omit<FileConfig, "profiles">>;
@@ -25,6 +27,7 @@ export interface GlobalCliOptions {
   output?: OutputFormat;
   userToken?: string;
   baseUrl?: string;
+  tokenMode?: TokenMode;
   debug?: boolean;
   compact?: boolean;
   color?: boolean;
@@ -35,6 +38,7 @@ export interface ResolvedConfig {
   appSecret?: string;
   userAccessToken?: string;
   baseUrl: string;
+  tokenMode: TokenMode;
   debug: boolean;
   output: {
     format: OutputFormat;
@@ -79,6 +83,16 @@ function parseOutputFormat(value: string | undefined): OutputFormat | undefined 
   return undefined;
 }
 
+function parseTokenMode(value: string | undefined): TokenMode | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (value === "auto" || value === "user" || value === "tenant") {
+    return value;
+  }
+  return undefined;
+}
+
 function deepMerge<T extends Record<string, unknown>>(base: T, override: Record<string, unknown>): T {
   const result = { ...base } as Record<string, unknown>;
 
@@ -108,6 +122,7 @@ function toInternalConfig(config: FileConfig): {
   appSecret?: string;
   userAccessToken?: string;
   baseUrl?: string;
+  tokenMode?: TokenMode;
   debug?: boolean;
   output?: { format?: OutputFormat };
 } {
@@ -116,6 +131,7 @@ function toInternalConfig(config: FileConfig): {
     appSecret: config.app_secret,
     userAccessToken: config.user_access_token,
     baseUrl: config.base_url,
+    tokenMode: config.token_mode,
     debug: config.debug,
     output: {
       format: config.output?.format,
@@ -129,6 +145,7 @@ function toFileConfig(config: Partial<ResolvedConfig>): FileConfig {
     app_secret: config.appSecret,
     user_access_token: config.userAccessToken,
     base_url: config.baseUrl,
+    token_mode: config.tokenMode,
     debug: config.debug,
     output: {
       format: config.output?.format,
@@ -184,6 +201,7 @@ export async function resolveConfig(options: GlobalCliOptions = {}): Promise<Res
     appSecret: process.env.FEISHU_APP_SECRET,
     userAccessToken: process.env.FEISHU_USER_ACCESS_TOKEN,
     baseUrl: process.env.FEISHU_BASE_URL,
+    tokenMode: parseTokenMode(process.env.FEISHU_TOKEN_MODE),
     debug: parseBoolean(process.env.FEISHU_DEBUG),
     output: {
       format: parseOutputFormat(process.env.FEISHU_OUTPUT_FORMAT ?? process.env.FEISHU_OUTPUT),
@@ -193,6 +211,7 @@ export async function resolveConfig(options: GlobalCliOptions = {}): Promise<Res
   const cliConfig = {
     userAccessToken: options.userToken,
     baseUrl: options.baseUrl,
+    tokenMode: options.tokenMode,
     debug: options.debug,
     output: {
       format: options.output,
@@ -205,6 +224,7 @@ export async function resolveConfig(options: GlobalCliOptions = {}): Promise<Res
       appSecret: undefined,
       userAccessToken: undefined,
       baseUrl: DEFAULT_BASE_URL,
+      tokenMode: "auto",
       debug: false,
       output: {
         format: DEFAULT_OUTPUT_FORMAT,
@@ -218,6 +238,7 @@ export async function resolveConfig(options: GlobalCliOptions = {}): Promise<Res
     appSecret: resolved.appSecret as string | undefined,
     userAccessToken: resolved.userAccessToken as string | undefined,
     baseUrl: (resolved.baseUrl as string | undefined) || DEFAULT_BASE_URL,
+    tokenMode: (resolved.tokenMode as TokenMode | undefined) || "auto",
     debug: Boolean(resolved.debug),
     output: {
       format: ((resolved.output as { format?: OutputFormat } | undefined)?.format || DEFAULT_OUTPUT_FORMAT) as OutputFormat,

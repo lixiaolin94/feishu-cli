@@ -2,12 +2,36 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Command } from "commander";
 import { getClient } from "../../core/client";
-import { resolveConfig } from "../../core/config";
+import { TokenMode, resolveConfig } from "../../core/config";
 import { executeTool } from "../../core/executor";
-import { formatOutput, printOutput } from "../../core/output";
+import { printOutput } from "../../core/output";
 import { resolveUserAccessToken } from "../../core/auth/resolve";
 import { findToolByName } from "../../generated/registry";
 import { parseDocumentId } from "./doc-helpers";
+
+interface GlobalOptions {
+  config?: string;
+  profile?: string;
+  output?: "json" | "table" | "yaml";
+  userToken?: string;
+  baseUrl?: string;
+  tokenMode?: TokenMode;
+  debug?: boolean;
+  compact?: boolean;
+  color?: boolean;
+}
+
+function getShouldUseUAT(tokenMode: TokenMode, useUAT?: boolean): boolean {
+  switch (tokenMode) {
+    case "user":
+      return true;
+    case "tenant":
+      return false;
+    case "auto":
+    default:
+      return Boolean(useUAT);
+  }
+}
 
 export function registerDocExport(docCommand: Command): void {
   docCommand
@@ -18,16 +42,7 @@ export function registerDocExport(docCommand: Command): void {
     .option("--front-matter", "Include basic front matter")
     .option("--use-uat", "Use user access token")
     .action(async (target, localOptions, command: Command) => {
-      const globalOptions = command.optsWithGlobals() as {
-        config?: string;
-        profile?: string;
-        output?: "json" | "table" | "yaml";
-        userToken?: string;
-        baseUrl?: string;
-        debug?: boolean;
-        compact?: boolean;
-        color?: boolean;
-      };
+      const globalOptions = command.optsWithGlobals() as GlobalOptions;
 
       const config = await resolveConfig(globalOptions);
       const client = getClient(config);
@@ -37,17 +52,16 @@ export function registerDocExport(docCommand: Command): void {
       }
 
       const { documentId } = parseDocumentId(target);
-      const userAccessToken = await resolveUserAccessToken({
-        explicitToken: globalOptions.userToken,
-        configToken: config.userAccessToken,
-        appId: config.appId,
-        appSecret: config.appSecret,
-        baseUrl: config.baseUrl,
-      });
-
-      if (localOptions.useUat && !userAccessToken) {
-        throw new Error("doc export with --use-uat requires a valid user token.");
-      }
+      const useUAT = getShouldUseUAT(config.tokenMode, localOptions.useUat);
+      const userAccessToken = useUAT
+        ? await resolveUserAccessToken({
+            explicitToken: globalOptions.userToken,
+            configToken: config.userAccessToken,
+            appId: config.appId,
+            appSecret: config.appSecret,
+            baseUrl: config.baseUrl,
+          })
+        : undefined;
 
       const result = (await executeTool(
         client,
@@ -56,7 +70,7 @@ export function registerDocExport(docCommand: Command): void {
           path: {
             document_id: documentId,
           },
-          useUAT: Boolean(localOptions.useUat),
+          useUAT: useUAT,
         },
         userAccessToken,
       )) as { data?: { content?: string } };
