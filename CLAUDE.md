@@ -86,7 +86,7 @@ Shared token routing logic lives in `src/core/config.ts` as `getShouldUseUAT(tok
 - `doc export`
   Current implementation uses `docx document rawContent`, which is useful but not yet high-fidelity Markdown export.
 - `exec`
-  Executes one tool from JSON input and always returns structured JSON. Internally it uses the SDK layer rather than Commander-generated flags.
+  Executes one tool from JSON input and always returns structured JSON. Supports `--batch` and `--dry-run` for agent workflows. Internally it uses the SDK layer rather than Commander-generated flags.
 
 ## Development Notes
 

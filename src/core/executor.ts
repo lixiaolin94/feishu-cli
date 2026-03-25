@@ -1,6 +1,7 @@
 import * as lark from "@larksuiteoapi/node-sdk";
 import { ToolDef } from "../tools";
 import { FeishuCliError, mapError } from "./errors";
+import { debugLog } from "./logger";
 
 interface ApiErrorPayload {
   code?: number;
@@ -42,6 +43,14 @@ async function rawRequest(client: lark.Client, tool: ToolDef, params: Record<str
     throw new Error(`Tool ${tool.name} is missing fallback HTTP metadata.`);
   }
 
+  const debugEnabled = Boolean((client as { __feishuCliDebug?: boolean }).__feishuCliDebug);
+  debugLog(debugEnabled, `request ${tool.httpMethod} ${tool.path}`, {
+    tool: tool.name,
+    useUAT: Boolean(params["useUAT"]),
+    hasUserAccessToken: Boolean(userAccessToken),
+    params,
+  });
+
   const options = userAccessToken ? [lark.withUserAccessToken(userAccessToken)] : [];
   return client.request(
     {
@@ -60,6 +69,15 @@ export async function executeTool(
   userAccessToken?: string,
 ): Promise<unknown> {
   try {
+    const debugEnabled = Boolean((client as { __feishuCliDebug?: boolean }).__feishuCliDebug);
+    debugLog(debugEnabled, `execute tool ${tool.name}`, {
+      sdkName: tool.sdkName,
+      path: tool.path,
+      httpMethod: tool.httpMethod,
+      useUAT: Boolean(params["useUAT"]),
+      hasUserAccessToken: Boolean(userAccessToken),
+    });
+
     if (tool.nativeHandler) {
       return assertSuccessfulResult(await tool.nativeHandler(client, params, userAccessToken));
     }

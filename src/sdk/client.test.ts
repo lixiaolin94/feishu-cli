@@ -17,6 +17,42 @@ describe("FeishuClient discovery", () => {
       cliCommand: "feishu-cli im chat list",
     });
   });
+
+  it("validates a known tool without executing it", async () => {
+    const result = await client.validate("im.v1.chat.list", {
+      params: { page_size: 5 },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        tool: "im.v1.chat.list",
+        access_tokens: expect.any(Array),
+        useUAT: undefined,
+        payload: {
+          params: {
+            page_size: 5,
+          },
+        },
+      },
+    });
+  });
+
+  it("validates a batch without throwing", async () => {
+    const results = await client.executeBatch([
+      { tool: "missing.tool" },
+      { tool: "search.v2.message.create" },
+    ]);
+
+    expect(results).toHaveLength(2);
+    expect(results[0]).toMatchObject({
+      ok: false,
+      error: { code: "TOOL_NOT_FOUND" },
+    });
+    expect(results[1]).toMatchObject({
+      ok: false,
+    });
+  });
 });
 
 describe("FeishuClient errors", () => {

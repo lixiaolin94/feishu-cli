@@ -7,6 +7,13 @@ export interface FeishuClientOptions {
   userAccessToken?: string;
   baseUrl?: string;
   tokenMode?: "auto" | "user" | "tenant";
+  debug?: boolean;
+}
+
+export interface FeishuBatchRequest {
+  tool: string;
+  params?: Record<string, unknown>;
+  all?: boolean;
 }
 
 export interface FeishuResult<T = unknown> {

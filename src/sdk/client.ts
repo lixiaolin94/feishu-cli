@@ -1,4 +1,4 @@
-import type { FeishuClientOptions, FeishuResult, ToolInfo } from "./types";
+import type { FeishuBatchRequest, FeishuClientOptions, FeishuResult, ToolInfo } from "./types";
 import { getClient } from "../core/client";
 import { DEFAULT_BASE_URL, type TokenMode } from "../core/config";
 import { mapError } from "../core/errors";
@@ -8,6 +8,7 @@ import type { JsonSchema } from "../core/schema";
 import { toolParamsToJsonSchema } from "../core/schema";
 import { findToolByName, getAllTools, getCliCommand, getToolsByProject, searchTools as searchRegistryTools } from "../generated/registry";
 import { resolveToolUseUAT } from "../generated/loader";
+import { debugLog } from "../core/logger";
 import type { ToolDef } from "../tools";
 
 function validatePayload(tool: ToolDef, params: Record<string, unknown>): Record<string, unknown> {
@@ -50,6 +51,7 @@ export class FeishuClient {
   private readonly userAccessToken?: string;
   private readonly baseUrl: string;
   private readonly tokenMode: TokenMode;
+  private readonly debug: boolean;
 
   constructor(options: FeishuClientOptions) {
     this.appId = options.appId;
@@ -57,6 +59,7 @@ export class FeishuClient {
     this.userAccessToken = options.userAccessToken;
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
     this.tokenMode = options.tokenMode ?? "auto";
+    this.debug = Boolean(options.debug);
   }
 
   listTools(namespace?: string): ToolInfo[] {
@@ -83,6 +86,42 @@ export class FeishuClient {
     return this.run(toolName, params, true);
   }
 
+  async executeBatch(requests: FeishuBatchRequest[]): Promise<FeishuResult[]> {
+    const results: FeishuResult[] = [];
+    for (const request of requests) {
+      results.push(request.all ? await this.executeAll(request.tool, request.params ?? {}) : await this.execute(request.tool, request.params ?? {}));
+    }
+    return results;
+  }
+
+  async validate(toolName: string, params: Record<string, unknown> = {}): Promise<FeishuResult> {
+    try {
+      const tool = findToolByName(toolName);
+      if (!tool) {
+        throw new Error(`Unknown API tool: ${toolName}. Run \`feishu-cli api search <keyword>\` to discover commands.`);
+      }
+
+      const requestedUseUAT = typeof params.useUAT === "boolean" ? params.useUAT : undefined;
+      const useUAT = resolveToolUseUAT(tool, this.tokenMode, requestedUseUAT);
+      const payload = validatePayload(tool, params);
+
+      return {
+        ok: true,
+        data: {
+          tool: tool.name,
+          access_tokens: tool.accessTokens ?? [],
+          useUAT,
+          payload: useUAT !== undefined ? { ...payload, useUAT } : payload,
+        },
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: mapError(error),
+      };
+    }
+  }
+
   private async run(toolName: string, params: Record<string, unknown>, all: boolean): Promise<FeishuResult> {
     try {
       const tool = findToolByName(toolName);
@@ -97,13 +136,19 @@ export class FeishuClient {
         payload.useUAT = useUAT;
       }
 
+      debugLog(this.debug, `sdk execute ${tool.name}`, {
+        all,
+        useUAT,
+        payload,
+      });
+
       const client = getClient({
         appId: this.appId,
         appSecret: this.appSecret,
         userAccessToken: this.userAccessToken,
         baseUrl: this.baseUrl,
         tokenMode: this.tokenMode,
-        debug: false,
+        debug: this.debug,
         output: { format: "json" },
         profile: undefined,
         configPath: "",

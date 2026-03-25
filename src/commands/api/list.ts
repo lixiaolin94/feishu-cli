@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { GlobalCliOptions, resolveConfig } from "../../core/config";
 import { printOutput } from "../../core/output";
 import { getProjectSummaries, getToolsByProject } from "../../generated/registry";
+import { toolParamsToJsonSchema } from "../../core/schema";
 
 export function registerApiList(apiCommand: Command): void {
   apiCommand
@@ -32,6 +33,7 @@ export function registerApiList(apiCommand: Command): void {
         path: tool.path,
         sdk_name: tool.sdkName,
         description: tool.description,
+        parameters: toolParamsToJsonSchema(tool),
       }));
 
       printOutput(

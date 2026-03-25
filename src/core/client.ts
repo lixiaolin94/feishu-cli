@@ -26,6 +26,8 @@ const stderrLogger = {
   trace: (...args: unknown[]): void => writeLog("[trace]", args),
 };
 
+type FeishuCliClient = Client & { __feishuCliDebug?: boolean };
+
 export function getClient(config: ResolvedConfig): Client {
   if (!config.appId || !config.appSecret) {
     throw new Error("Missing app_id or app_secret. Run `feishu-cli config init` or set FEISHU_APP_ID / FEISHU_APP_SECRET.");
@@ -35,6 +37,7 @@ export function getClient(config: ResolvedConfig): Client {
     appId: config.appId,
     appSecret: config.appSecret,
     baseUrl: config.baseUrl,
+    debug: config.debug,
   });
 
   if (cachedClient && cachedKey === key) {
@@ -48,6 +51,7 @@ export function getClient(config: ResolvedConfig): Client {
     loggerLevel: config.debug ? LoggerLevel.info : LoggerLevel.error,
     logger: config.debug ? stderrLogger : silentLogger,
   });
+  (cachedClient as FeishuCliClient).__feishuCliDebug = config.debug;
   cachedKey = key;
   return cachedClient;
 }

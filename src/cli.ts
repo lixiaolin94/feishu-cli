@@ -11,6 +11,7 @@ import { registerConfigSet } from "./commands/config/set";
 import { registerApiSearch } from "./commands/api/search";
 import { registerApiList } from "./commands/api/list";
 import { registerApiInfo } from "./commands/api/info";
+import { registerApiDump } from "./commands/api/dump";
 import { registerExec } from "./commands/exec";
 import { registerMsgSend } from "./commands/custom/msg-send";
 import { registerDocImport } from "./commands/custom/doc-import";
@@ -63,7 +64,9 @@ Examples:
   feishu-cli auth login --manual
   feishu-cli api search chat
   feishu-cli api info im.v1.chat.list
-  echo '{"tool":"im.v1.chat.list","params":{"params":{"page_size":5}}}' | feishu-cli exec --stdin
+  feishu-cli api dump --output json
+  echo '[{"tool":"im.v1.chat.list","params":{"params":{"page_size":5}}}]' | feishu-cli exec --stdin --batch
+  feishu-cli exec im.v1.chat.list --dry-run --params '{"params":{"page_size":5}}'
   feishu-cli im message create --receive-id-type email --receive-id user@example.com --msg-type text --content '{"text":"hello"}'
   feishu-cli im chat list --page-size 5
   feishu-cli --token-mode user docx builtin search --search-key "weekly"
@@ -86,6 +89,7 @@ Examples:
   registerApiSearch(apiCommand);
   registerApiList(apiCommand);
   registerApiInfo(apiCommand);
+  registerApiDump(apiCommand);
   registerExec(program);
 
   const docCommand = program.command("doc").description("High-level document helpers");

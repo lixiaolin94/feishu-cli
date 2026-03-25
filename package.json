@@ -29,7 +29,7 @@
     "lark",
     "cli"
   ],
-  "author": "",
+  "author": "Xiaolin Li",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"

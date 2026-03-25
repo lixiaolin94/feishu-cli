@@ -60,6 +60,8 @@ Find commands before you memorize them:
   Search by keyword across names, descriptions, paths, and SDK methods.
 - `feishu-cli api info im.v1.chat.list`
   Inspect one API, including token type, HTTP path, SDK method, and parameters.
+- `feishu-cli api dump`
+  Dump the full tool catalog with JSON schema, suitable for agent-side caching.
 
 Generated API commands are created from official tool definitions:
 
@@ -198,8 +200,10 @@ if (result.ok) {
 - `listTools(namespace?)`
 - `searchTools(keyword)`
 - `describeTool(toolName)`
+- `validate(toolName, params?)`
 - `execute(toolName, params?)`
 - `executeAll(toolName, params?)`
+- `executeBatch(requests)`
 
 All execution methods return structured `{ ok, data, error }` results instead of throwing, which makes the SDK easier to use from agents and automation.
 
@@ -210,6 +214,8 @@ For non-Node agents or shell pipelines, use structured execution mode:
 ```bash
 echo '{"tool":"im.v1.chat.list","params":{"params":{"page_size":5}}}' | feishu-cli exec --stdin
 feishu-cli exec im.v1.chat.list --params '{"params":{"page_size":5}}'
+echo '[{"tool":"im.v1.chat.list","params":{"params":{"page_size":1}}}]' | feishu-cli exec --stdin --batch
+feishu-cli exec im.v1.chat.list --dry-run --params '{"params":{"page_size":5}}'
 ```
 
 `exec` always returns structured JSON:
@@ -222,6 +228,8 @@ feishu-cli exec im.v1.chat.list --params '{"params":{"page_size":5}}'
   }
 }
 ```
+
+Use `feishu-cli api dump` when an agent wants to cache the entire tool catalog up front instead of calling `api info` repeatedly.
 
 ## Output Formats
 
