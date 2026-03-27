@@ -6,10 +6,8 @@ import { printOutput } from "../../core/output";
 import { resolveUserAccessToken } from "../../core/auth/resolve";
 import { findToolByName } from "../../generated/registry";
 
-export function registerMsgSend(program: Command): void {
-  program
-    .command("msg")
-    .description("High-level messaging helpers")
+export function registerMsgSend(parent: Command): void {
+  parent
     .command("send")
     .description("Send a text message quickly")
     .requiredOption("--to <target>", "Target user/chat identifier")

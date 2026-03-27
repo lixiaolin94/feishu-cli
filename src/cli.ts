@@ -14,8 +14,19 @@ import { registerApiInfo } from "./commands/api/info";
 import { registerApiDump } from "./commands/api/dump";
 import { registerExec } from "./commands/exec";
 import { registerMsgSend } from "./commands/custom/msg-send";
+import { registerMsgRead } from "./commands/custom/msg-read";
+import { registerMsgSearch } from "./commands/custom/msg-search";
 import { registerDocImport } from "./commands/custom/doc-import";
 import { registerDocExport } from "./commands/custom/doc-export";
+import { registerDocCreate } from "./commands/custom/doc-create";
+import { registerDocRead } from "./commands/custom/doc-read";
+import { registerDocUpdate } from "./commands/custom/doc-update";
+import { registerCalEvents } from "./commands/custom/cal-events";
+import { registerCalCreate } from "./commands/custom/cal-create";
+import { registerTaskCreate } from "./commands/custom/task-create";
+import { registerTaskList } from "./commands/custom/task-list";
+import { registerTableQuery } from "./commands/custom/table-query";
+import { registerTableWrite } from "./commands/custom/table-write";
 import { registerCompletion } from "./commands/completion";
 import { getAllTools, getProjectSummaries } from "./generated/registry";
 
@@ -54,6 +65,9 @@ Core Commands:
   exec        Structured JSON execution for agents and scripts
   doc         High-level document helpers
   msg         High-level messaging helpers
+  cal         High-level calendar helpers
+  task        High-level task helpers
+  table       High-level bitable helpers
   api         Search and discover available APIs
   completion  Generate shell completion scripts
 
@@ -66,14 +80,16 @@ Examples:
   feishu-cli config init
   feishu-cli auth login --manual
   feishu-cli api search chat
-  feishu-cli api info im.v1.chat.list
-  feishu-cli api dump --output json
-  echo '[{"tool":"im.v1.chat.list","params":{"params":{"page_size":5}}}]' | feishu-cli exec --stdin --batch
-  feishu-cli exec im.v1.chat.list --dry-run --params '{"params":{"page_size":5}}'
-  feishu-cli im message create --receive-id-type email --receive-id user@example.com --msg-type text --content '{"text":"hello"}'
-  feishu-cli im chat list --page-size 5
-  feishu-cli --token-mode user docx builtin search --search-key "weekly"
   feishu-cli msg send --to user@example.com --text "Hello"
+  feishu-cli msg read --chat-id oc_xxxxx --limit 20
+  feishu-cli doc create --title "Meeting Notes" --content "# Notes\\n..."
+  feishu-cli doc read <document-id>
+  feishu-cli cal events --start today --end tomorrow
+  feishu-cli cal create --title "Standup" --start "+1h" --end "+2h"
+  feishu-cli task create --summary "Review PR" --due tomorrow
+  feishu-cli task list --limit 10
+  feishu-cli table query --app bascnXXX --table tblXXX --limit 50
+  feishu-cli exec im.v1.chat.list --dry-run --params '{"params":{"page_size":5}}'
 `,
   );
 
@@ -98,8 +114,27 @@ Examples:
   const docCommand = program.command("doc").description("High-level document helpers");
   registerDocImport(docCommand);
   registerDocExport(docCommand);
+  registerDocCreate(docCommand);
+  registerDocRead(docCommand);
+  registerDocUpdate(docCommand);
 
-  registerMsgSend(program);
+  const msgCommand = program.command("msg").description("High-level messaging helpers");
+  registerMsgSend(msgCommand);
+  registerMsgRead(msgCommand);
+  registerMsgSearch(msgCommand);
+
+  const calCommand = program.command("cal").description("High-level calendar helpers");
+  registerCalEvents(calCommand);
+  registerCalCreate(calCommand);
+
+  const taskCommand = program.command("task").description("High-level task helpers");
+  registerTaskCreate(taskCommand);
+  registerTaskList(taskCommand);
+
+  const tableCommand = program.command("table").description("High-level bitable helpers");
+  registerTableQuery(tableCommand);
+  registerTableWrite(tableCommand);
+
   registerCompletion(program);
   registerGeneratedCommands(program);
 

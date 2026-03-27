@@ -2,7 +2,7 @@ import { allTools, ToolDef } from "../tools";
 import { getShouldUseUAT, TokenMode } from "../core/config";
 import { toKebab } from "../core/utils";
 
-export const RESERVED_TOP_LEVEL_COMMANDS = new Set(["auth", "config", "msg"]);
+export const RESERVED_TOP_LEVEL_COMMANDS = new Set(["auth", "config", "msg", "doc", "cal", "task", "table"]);
 
 type AccessTokenKind = "tenant" | "user";
 
