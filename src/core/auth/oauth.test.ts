@@ -36,7 +36,18 @@ describe("generateAuthUrl", () => {
       scopes: "contact:user.base:readonly",
     });
 
-    expect(result.authUrl).toContain("scope=contact");
+    expect(result.authUrl).toContain("scope=offline_access");
+    expect(result.authUrl).toContain("contact%3Auser.base%3Areadonly");
+  });
+
+  it("always includes offline_access even without explicit scopes", () => {
+    const result = generateAuthUrl({
+      appId: "cli_test",
+      appSecret: "secret",
+      baseUrl: "https://open.feishu.cn",
+    });
+
+    expect(result.authUrl).toContain("scope=offline_access");
   });
 });
 
