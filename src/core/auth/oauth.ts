@@ -67,9 +67,12 @@ export function generateAuthUrl(options: LoginOptions): AuthUrlResult {
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("state", state);
 
-  if (options.scopes) {
-    authorizeUrl.searchParams.set("scope", options.scopes);
-  }
+  // Always request offline_access so the token response includes a refresh_token,
+  // which allows automatic token renewal without re-login every 2 hours.
+  const scopes = options.scopes
+    ? (options.scopes.includes("offline_access") ? options.scopes : `offline_access ${options.scopes}`)
+    : "offline_access";
+  authorizeUrl.searchParams.set("scope", scopes);
 
   return {
     authUrl: authorizeUrl.toString(),
